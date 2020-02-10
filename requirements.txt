@@ -1,0 +1,2 @@
+tushare == 1.2.50
+monoengine == 0.18.2
