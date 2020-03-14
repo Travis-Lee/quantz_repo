@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import mongoengine
-import tushare as ts
 
 from quantz_repo import IndexDailyItem
 
@@ -28,6 +27,6 @@ class QuantzRepo(object):
         :return: DataFrame
         '''
         if code is None:
-            log.w(TAG, 'Failed  to get index daily(code unspecified)')
+            log.w(TAG, 'code unspecified')
         else:
             pass

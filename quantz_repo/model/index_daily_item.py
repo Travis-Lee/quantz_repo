@@ -29,6 +29,5 @@ class IndexDailyItem(Document):
     amount = FloatField(required=True)
 
     def __str__(self):
-        return '%s %s %f %f %f %f %f %f %f %f %f' % \
-            (self.ts_code, self.trade_date, self.close, self.open, self.high, self.low,
-             self.pre_close, self.change, self.pct_chg, self.vol, self.amount)
+        return '%s %s %f %f %f %f %f %f %f %f %f' % (self.ts_code, self.trade_date, self.close, self.open, self.high, self.low,
+                                                     self.pre_close, self.change, self.pct_chg, self.vol, self.amount)
