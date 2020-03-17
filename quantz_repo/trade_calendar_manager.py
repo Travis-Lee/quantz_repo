@@ -13,7 +13,7 @@ class TradeCalendarManager(object):
     交易日历管理类
     '''
     @classmethod
-    def nextTradeDateOf(cls, exchange: str, date: str):
+    def next_trade_date_of(cls, exchange: str, date: str):
         """ 从交易日历中获取某个日期后的下一个交易日期
         // TODO 返回的只是 tushare 定义的日期格式，如果tushare 变更格式，这里返回的就不是预期格式了
 

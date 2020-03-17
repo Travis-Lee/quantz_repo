@@ -61,8 +61,11 @@ class IndexManager(object):
             #    index_item.save()
 
     def _dataframe_2_mongo(self, data: DataFrame):
-        IndexDailyItem.objects.insert(
-            IndexDailyItem.objects.from_json(data.to_json(orient='records')))
+        if data is not None and not data.empty > 0:
+            IndexDailyItem.objects.insert(
+                IndexDailyItem.objects.from_json(data.to_json(orient='records')))
+        else:
+            _logw('No data saved to db, cause data is None or empty')
 
     def get_index_daily(self, code: str, start_date: str = '', end_date: str = ''):
         """ 获取指数日线数据
@@ -123,7 +126,7 @@ class IndexManager(object):
         items = IndexDailyItem.objects(
             ts_code=code).order_by('-trade_date').limit(1)
         _logd('items %s %d' % (items[0].trade_date, items.count()))
-        start_date = TradeCalendarManager.nextTradeDateOf(
+        start_date = TradeCalendarManager.next_trade_date_of(
             exchange=TradeCalendarManager.tscode_2_exchange(code), date=items[0].trade_date) if items.count() >= 1 else None
         _logd('Update index daily for %s begins on %s' % (code, start_date))
         if start_date:
