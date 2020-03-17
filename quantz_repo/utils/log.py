@@ -3,6 +3,10 @@
 from .date_time import now_for_log_str
 
 
+def i(tag: str, msg: str):
+    print('I:%s:%s:%s\n' % (now_for_log_str(), tag, msg))
+
+
 def w(tag: str, msg: str):
     print('W:%s:%s:%s\n' % (now_for_log_str(), tag, msg))
 

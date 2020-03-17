@@ -8,12 +8,13 @@ from pandas import DataFrame
 from . import utils
 from .model import IndexDailyItem
 from .quantz_exception import QuantzException
-from .utils import log
+from .trade_calendar_manager import TradeCalendarManager
+from .utils import log, now_2_YYYYMMDD
 
 _TAG = 'IndexManager'
 
 _MANAGED_INDEX_ = ['000001.SH', '399001.SZ',
-                   '399005.SZ', '399006.SH', '000902.SH']
+                   '399005.SZ', '399006.SZ', '000902.SH']
 '''
 当前关注的指数：上证指数、深证成指、中小板指、创业板指、中证流通
 '''
@@ -25,7 +26,7 @@ def _logd(msg: str):
     :param msg: 消息
     :type msg: str
     """
-    log.d('IndexManager', str)
+    log.d('IndexManager', msg)
 
 
 def _logw(msg: str):
@@ -34,12 +35,13 @@ def _logw(msg: str):
     :param msg: 消息
     :type msg: str
     """
-    log.w('IndexManager', str)
+    log.w('IndexManager', msg)
 
 
 class IndexManager(object):
     '''
     指数数据的管理类，负责指数数据的初始化、日常维护、日常更新、数据验证、对外提供访问指数数据的接口。当前只关心上证指数、深证成指、中小板指、创业板指、中证流通。
+    第一次运行代码，在初始化数据过程中，获取所有可获取的指数信息并保存在数据库中，以后每次运行，更新指数数据到最新状态。
     '''
 
     def initialize_index(self):
@@ -52,9 +54,15 @@ class IndexManager(object):
         for index in _MANAGED_INDEX_:
             log.d(_TAG, 'Initializing index:%s' % index)
             index_df = ts.pro_api().index_daily(ts_code=index)
-            for index_item in IndexDailyItem.objects.from_json(index_df.to_json(orient='records')):
-                # TODO: 待优化数据保存方式
-                index_item.save()
+            log.d('IndexManager', '%s shape: %s' % (index, index_df.shape))
+            self._dataframe_2_mongo(index_df)
+            # for index_item in IndexDailyItem.objects.from_json(index_df.to_json(orient='records')):
+            # 此逐条保存数据的方法已优化，见 _dataframe_2_mongo
+            #    index_item.save()
+
+    def _dataframe_2_mongo(self, data: DataFrame):
+        IndexDailyItem.objects.insert(
+            IndexDailyItem.objects.from_json(data.to_json(orient='records')))
 
     def get_index_daily(self, code: str, start_date: str = '', end_date: str = ''):
         """ 获取指数日线数据
@@ -85,7 +93,7 @@ class IndexManager(object):
                 raise QuantzException(
                     'Could not get full data for %s from %s to %s' % (code, start_date, end_date))
         index_objects = IndexDailyItem.objects(
-            ts_code=code, trade_date__gte=start_date, trade_date__lte=end_date)
+            ts_code=code, trade_date__gte=start_date, trade_date__lte=end_date).order_by('-trade_date')
         index_df = DataFrame.from_dict(json.loads(index_objects.to_json()))
         if index_df.shape[1] > 1:
             index_df = index_df.drop('_id', axis=1)
@@ -105,6 +113,29 @@ class IndexManager(object):
         """
         _logw('_is_data_available to be implemented!!!')
         return True
+
+    def update_index_daily(self, code: str = '000001.SH'):
+        """定期更新指数数据
+
+        :param code: [description], defaults to '000001.SH'
+        :type code: str, optional
+        """
+        items = IndexDailyItem.objects(
+            ts_code=code).order_by('-trade_date').limit(1)
+        _logd('items %s %d' % (items[0].trade_date, items.count()))
+        start_date = TradeCalendarManager.nextTradeDateOf(
+            exchange=TradeCalendarManager.tscode_2_exchange(code), date=items[0].trade_date) if items.count() >= 1 else None
+        _logd('Update index daily for %s begins on %s' % (code, start_date))
+        if start_date:
+            if start_date > now_2_YYYYMMDD():
+                _logw('Could not get index in future %s' % start_date)
+                return
+            pro = ts.pro_api()
+            index_df = pro.index_daily(ts_code=code, start_date=start_date)
+            self._dataframe_2_mongo(index_df)
+        else:
+            _logw('Could not determine date, re-init index daily')
+            self.initialize_index()
 
     def _obtain_delta_data(self, code: str, start_date='', end_date=''):
         """

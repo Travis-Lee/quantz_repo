@@ -5,6 +5,8 @@ import pandas as pd
 from mongoengine import Document, FloatField, StringField, connect, disconnect
 from pandas import DataFrame, Series
 
+from quantz_repo import IndexDailyItem
+
 
 class ModelA(Document):
     field1 = StringField(required=True)
@@ -52,3 +54,10 @@ class DfRxMongoTest(TestCase):
             self.assertTrue(
                 row.field2 in [1.1, 2.2], 'DataFrame not matching MongoDB field2')
         print('\n%s\n' % df)
+
+    def test_get_latest_indax_daily_item_in_db(self):
+        '''
+        测试获取数据库中最新指数的日期
+        '''
+        print('\n%s\n' % IndexDailyItem.objects(
+            ts_code='000001.SH').order_by('-trade_date').limit(1)[0].trade_date)

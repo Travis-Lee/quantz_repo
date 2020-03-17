@@ -39,3 +39,7 @@ class IndexManagerTest(TestCase):
         print('%s\n' % recent_sh_index['trade_date'])
         recent_sh_index = im.get_index_daily('000001.SH')
         print('%s\n' % recent_sh_index['trade_date'])
+
+    def test_update_index_daily(self):
+        im = IndexManager()
+        im.update_index_daily()
