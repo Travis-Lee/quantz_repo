@@ -125,6 +125,10 @@ class IndexManager(object):
         """
         items = IndexDailyItem.objects(
             ts_code=code).order_by('-trade_date').limit(1)
+        if not items.count():
+            _logw(
+                'No index found for %s, initialize it first, nothing done' % code)
+            return
         _logd('items %s %d' % (items[0].trade_date, items.count()))
         start_date = TradeCalendarManager.next_trade_date_of(
             exchange=TradeCalendarManager.tscode_2_exchange(code), date=items[0].trade_date) if items.count() >= 1 else None

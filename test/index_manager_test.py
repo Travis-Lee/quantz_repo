@@ -42,4 +42,6 @@ class IndexManagerTest(TestCase):
 
     def test_update_index_daily(self):
         im = IndexManager()
-        im.update_index_daily()
+        # im.update_index_daily()
+        # im.update_index_daily(code="399006.SZ")
+        im.update_index_daily(code="399006.SH")
