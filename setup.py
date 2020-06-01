@@ -14,7 +14,7 @@ with open(join(dirname(__file__), 'quantz_repo/VERSION.txt'), 'rb') as f:
     version = f.read().decode('ascii').strip()
 
 setup(
-    name='quantz_repo',
+    name='quantz-repo',
     version=version,
     description='QuantZ data repository by Yuz',
     packages=find_packages(exclude=[]),
