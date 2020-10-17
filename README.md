@@ -1,5 +1,7 @@
 # Get Started with quantz_repo
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/d80278dcbcac47bf9cb2dcbc18857792)](https://app.codacy.com/gh/zhangyuz/quantz_repo?utm_source=github.com&utm_medium=referral&utm_content=zhangyuz/quantz_repo&utm_campaign=Badge_Grade)
+
 ## System Requirements
 1. MongoDB: quantz-repo 使用 MongoDB 作为数据存储的数据库，使用本代码之前，你必须有一个可用的 MongoDB 数据库
 2. Anaconda: 一个开箱即用的 Python 环境，笔者使用的就是Anaconda，建议使用
