@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import mongoengine
-
+from pandas import DataFrame
 from quantz_repo import IndexDailyItem
 
 from .utils import log
@@ -30,3 +30,15 @@ class QuantzRepo(object):
             log.w(TAG, 'code unspecified')
         else:
             pass
+
+    def get_industry_classify(self, level: str = 'Lr', src: str = 'sw') -> DataFrame:
+        """ 获取某个级别的行业分类
+
+        :param level: 获取一二三级的行业分类， L1,L2,L3, defaults to 'L2'
+        :type level: str, optional
+        :param src: [description], defaults to 'sw'
+        :type src: str, optional
+        :return: [description]
+        :rtype: DataFrame
+        """
+        pass

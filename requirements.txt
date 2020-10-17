@@ -1,2 +1,3 @@
-tushare == 1.2.50
+tushare
 mongoengine == 0.18.2
+akshare
