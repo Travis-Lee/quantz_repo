@@ -1,6 +1,8 @@
+
 # Get Started with quantz_repo
 
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/d80278dcbcac47bf9cb2dcbc18857792)](https://app.codacy.com/gh/zhangyuz/quantz_repo?utm_source=github.com&utm_medium=referral&utm_content=zhangyuz/quantz_repo&utm_campaign=Badge_Grade)
+[![CodeFactor](https://www.codefactor.io/repository/github/zhangyuz/quantz_repo/badge)](https://www.codefactor.io/repository/github/zhangyuz/quantz_repo)
 
 ## System Requirements
 1. MongoDB: quantz-repo 使用 MongoDB 作为数据存储的数据库，使用本代码之前，你必须有一个可用的 MongoDB 数据库
