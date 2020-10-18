@@ -1,3 +1,4 @@
 tushare
 mongoengine == 0.18.2
 akshare
+gdown == 3.12.2

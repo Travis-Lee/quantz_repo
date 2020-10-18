@@ -7,7 +7,7 @@ from mongoengine import connect, disconnect
 
 from .quantz_exception import QuantzException
 
-from .us_eco import get_us_initial_jobless
+from .us_eco import get_us_initial_jobless, get_us_wei
 from .industrial_classificataion_manager import initialize_industrial_classification, get_industrial_classifications, get_industrial_classfication_members, get_industrial_classification_for
 
 

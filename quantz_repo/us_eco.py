@@ -1,10 +1,13 @@
-from datetime import date
 import json
+from datetime import date, datetime, timedelta
+import os
 
 import akshare as ak
+import gdown
 import pandas as pd
+from pandas import DataFrame
 
-from .model.us_eco_models import UsJoblessInitialClaimItem
+from .model.us_eco_models import UsJoblessInitialClaimItem, UsWeiItem
 from .utils.data_repo import df_2_mongo, mongo_2_df
 from .utils.date_time import get_last_thursday
 
@@ -58,3 +61,53 @@ def get_us_initial_jobless(limit: int = 300):
     # transform date time
     result = jobless_claims_df.applymap(jobless_transformer)
     return result
+
+
+def _get_us_wei_from_gd() -> pd.DataFrame:
+    '''
+    从 Google Drive 下载 WEI 数据，并保存到数据库中,参考 https://www.jimstock.org/
+    '''
+    wei_file = gdown.download('https://drive.google.com/uc?id=192MTTC1Tqol_LLgF-00R7-2c8jel-QmV',
+                              output=os.path.join(os.path.expanduser('~'), 'wei.xlsx'), quiet=False)
+    print('\n%s' % wei_file)
+    with pd.ExcelFile(wei_file) as xls:
+        wei_df = pd.read_excel(xls, sheet_name='Sheet1')
+    wei_when = wei_df['Date'].dt.strftime('%Y-%m-%d')
+    wei_df['when'] = wei_when
+    wei_df = wei_df.drop('Date', axis=1)
+    wei_df = wei_df.sort_values(
+        by=['when'], ascending=False, ignore_index=True)
+    os.remove(wei_file)
+    return wei_df
+
+
+def update_us_wei():
+    '''
+    更新数据库中 WEI 数据到最新。若有更新，返回最新的全量 WEI 数据， 否则返回 None
+    '''
+    latest_wei_item = UsWeiItem.objects.order_by('-when').limit(1).first()
+    result_df = None
+    if latest_wei_item is None:
+        # 数据库中没有WEI数据，初始化
+        result_df = _get_us_wei_from_gd()
+        df_2_mongo(result_df, UsWeiItem)
+    elif datetime.today() - latest_wei_item.when >= timedelta(days=7):
+        # 数据库中包含了WEI数据，但是最新 WEI 距今1周及以上
+        # FIXME: WEI 数据的时间与WEI的发布时间存在大概5天时间差，可能导致重复多次下载数据，
+        # 可以将上边的7天改成12天，待以后修复
+        UsWeiItem.drop_collection()
+        result_df = _get_us_wei_from_gd()
+        df_2_mongo(result_df, UsWeiItem)
+    return result_df
+
+
+def get_us_wei() -> DataFrame:
+    '''
+    获取 WEI 数据， 若数据库为空或数据库中不是最新的数据，则从网络获取
+    返回按照时间逆序排列的 WEI
+    '''
+    wei_df = update_us_wei()
+    if wei_df is not None:
+        return wei_df
+    else:
+        mongo_2_df(UsWeiItem.objects.order_by('-when'))
