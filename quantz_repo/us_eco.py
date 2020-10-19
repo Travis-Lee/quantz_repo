@@ -91,10 +91,10 @@ def update_us_wei():
         # 数据库中没有WEI数据，初始化
         result_df = _get_us_wei_from_gd()
         df_2_mongo(result_df, UsWeiItem)
-    elif datetime.today() - latest_wei_item.when >= timedelta(days=7):
+    elif datetime.today() - latest_wei_item.when >= timedelta(days=12):
         # 数据库中包含了WEI数据，但是最新 WEI 距今1周及以上
         # FIXME: WEI 数据的时间与WEI的发布时间存在大概5天时间差，可能导致重复多次下载数据，
-        # 可以将上边的7天改成12天，待以后修复
+        # 上边的12=7+5是经验值，随着使用增加继续优化这个数值
         UsWeiItem.drop_collection()
         result_df = _get_us_wei_from_gd()
         df_2_mongo(result_df, UsWeiItem)
@@ -107,7 +107,7 @@ def get_us_wei() -> DataFrame:
     返回按照时间逆序排列的 WEI
     '''
     wei_df = update_us_wei()
-    if wei_df is not None:
+    if wei_df is not None and not wei_df.empty:
         return wei_df
     else:
-        mongo_2_df(UsWeiItem.objects.order_by('-when'))
+        return mongo_2_df(UsWeiItem.objects.order_by('-when'))
