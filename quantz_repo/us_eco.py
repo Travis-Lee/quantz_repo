@@ -4,6 +4,7 @@ import os
 
 import akshare as ak
 import gdown
+import numpy as np
 import pandas as pd
 from pandas import DataFrame
 
@@ -72,8 +73,13 @@ def _get_us_wei_from_gd() -> pd.DataFrame:
     print('\n%s' % wei_file)
     with pd.ExcelFile(wei_file) as xls:
         wei_df = pd.read_excel(xls, sheet_name='Sheet1')
-    wei_when = wei_df['Date'].dt.strftime('%Y-%m-%d')
+    wei_when = wei_df['Date'].astype(np.int64)
+    print(wei_when)
+    # 以毫秒时间戳保存时间
+    wei_when = wei_when / 1000000
+    print(wei_when)
     wei_df['when'] = wei_when
+    # wei_df.rename(axis=1, columns={'Date': 'when'})
     wei_df = wei_df.drop('Date', axis=1)
     wei_df = wei_df.sort_values(
         by=['when'], ascending=False, ignore_index=True)
@@ -91,7 +97,7 @@ def update_us_wei():
         # 数据库中没有WEI数据，初始化
         result_df = _get_us_wei_from_gd()
         df_2_mongo(result_df, UsWeiItem)
-    elif datetime.today() - latest_wei_item.when >= timedelta(days=12):
+    elif datetime.today() - datetime.fromtimestamp(latest_wei_item.when/1000) >= timedelta(days=12):
         # 数据库中包含了WEI数据，但是最新 WEI 距今1周及以上
         # FIXME: WEI 数据的时间与WEI的发布时间存在大概5天时间差，可能导致重复多次下载数据，
         # 上边的12=7+5是经验值，随着使用增加继续优化这个数值
