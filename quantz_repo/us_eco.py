@@ -19,12 +19,13 @@ def update_us_initial_jobless():
      TODO: 1. 增加网络异常处理 2. 增加在内存中缓存DataFrame数据，不需要每次都和抓取的数据
     '''
     us_initial_jobless = ak.macro_usa_initial_jobless()
-    temp_df = pd.DataFrame(data={'when': us_initial_jobless.index.strftime(
-        '%Y-%m-%d'), 'initial_jobless': us_initial_jobless.values})
-    temp_df.astype({'when': 'datetime64[ns, UTC]'}, copy=False)
+    temp_df = pd.DataFrame(data={'when': us_initial_jobless.index.astype(
+        np.int64)/1000000, 'initial_jobless': us_initial_jobless.values})
     item = UsJoblessInitialClaimItem.objects.order_by('-when').limit(1).first()
     if item is not None:
-        temp_df = temp_df[temp_df['when'] > item.when.strftime('%Y-%m-%d')]
+        temp_df = temp_df[temp_df['when'] > item.when]
+    temp_df = temp_df.sort_values(
+        by=['when'], ascending=False, ignore_index=True)
     if (temp_df.shape[0] > 0):
         df_2_mongo(temp_df, UsJoblessInitialClaimItem)
     return temp_df
@@ -50,7 +51,7 @@ def get_us_initial_jobless(limit: int = 300):
     last_thursday = get_last_thursday()
     latest_item = UsJoblessInitialClaimItem.objects.order_by(
         '-when').limit(1).first()
-    if latest_item is None or last_thursday.strftime('%Y%m%d') > latest_item.when.strftime('%Y%m%d'):
+    if latest_item is None or last_thursday.timestamp() > latest_item.when:
         update_us_initial_jobless()
     jobless_claims = UsJoblessInitialClaimItem.objects.order_by(
         '-when').limit(limit)

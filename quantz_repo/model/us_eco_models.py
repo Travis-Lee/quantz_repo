@@ -1,8 +1,8 @@
-from mongoengine import Document, FloatField, LongField, DateTimeField
+from mongoengine import Document, FloatField, LongField
 
 
 class UsJoblessInitialClaimItem(Document):
-    when = DateTimeField(required=True,  unique=False)
+    when = LongField(required=True,  unique=False)
     initial_jobless = FloatField(required=True)
 
 
