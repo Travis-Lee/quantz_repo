@@ -24,8 +24,8 @@ def update_us_initial_jobless():
     item = UsJoblessInitialClaimItem.objects.order_by('-when').limit(1).first()
     if item is not None:
         temp_df = temp_df[temp_df['when'] > item.when]
-    temp_df = temp_df.sort_values(
-        by=['when'], ascending=False, ignore_index=True)
+    # temp_df = temp_df.sort_values(
+    #     by=['when'], ascending=False, ignore_index=True)
     if (temp_df.shape[0] > 0):
         df_2_mongo(temp_df, UsJoblessInitialClaimItem)
     return temp_df
@@ -82,8 +82,8 @@ def _get_us_wei_from_gd() -> pd.DataFrame:
     wei_df['when'] = wei_when
     # wei_df.rename(axis=1, columns={'Date': 'when'})
     wei_df = wei_df.drop('Date', axis=1)
-    wei_df = wei_df.sort_values(
-        by=['when'], ascending=False, ignore_index=True)
+    # wei_df = wei_df.sort_values(
+    #     by=['when'], ascending=False, ignore_index=True)
     os.remove(wei_file)
     return wei_df
 
