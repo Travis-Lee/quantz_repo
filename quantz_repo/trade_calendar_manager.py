@@ -4,6 +4,8 @@ import tushare as ts
 from pandas import Series
 
 from .utils import log
+from .utils import df_2_mongo, yyyymmdd_2_int
+from .models import TradeCalendarItem
 
 D = True
 
@@ -41,3 +43,32 @@ class TradeCalendarManager(object):
             return 'SSE'
         elif ts_code.endswith('.SZ'):
             return 'SZSE'
+
+
+def init_trade_calendar():
+    '''
+    初始化交易所交易日历，保存到数据库
+    '''
+    for ex in ['SSE', 'SZSE']:
+        __init_trade_calendar_for(ex)
+
+
+def __init_trade_calendar_for(exchange: str):
+    '''
+    初始化某个交易所的交易日历， SSE上交所,SZSE深交所,CFFEX 中金所,SHFE 上期所,CZCE 郑商所,DCE 大商所,INE 上能源,IB 银行间,XHKG 港交所
+
+    '''
+    cal = ts.pro_api().trade_cal(exchange=exchange,
+                                 fields='exchange,cal_date,is_open,pretrade_date')
+    cal = cal.rename({'cal_date': 'c', 'pretrade_date': 'p'}, axis=1)
+    cal['cal_date'] = cal['c'].map(yyyymmdd_2_int, na_action='ignore')
+    cal['pretrade_date'] = cal['p'].map(yyyymmdd_2_int, na_action='ignore')
+    cal = cal.drop(['c', 'p'], axis=1)
+    df_2_mongo(cal, TradeCalendarItem)
+
+
+def get_last_trade_date_timestamp__for(exchange: str) -> int:
+    '''
+    FIXME:实现获取最近一个交易日
+    '''
+    pass

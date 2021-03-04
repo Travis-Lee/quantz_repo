@@ -30,6 +30,10 @@ class BasicTradingInfoItem(DynamicDocument):
                 'name': 'basic_trading',
                 'fields': ['ts_code', 'trade_date', 'freq'],
                 'unique': True
+            },
+            {
+                'name': 'ts_code_index',
+                'fields': ['ts_code'],
             }
         ],
         'index_background': True,

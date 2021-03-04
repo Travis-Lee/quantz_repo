@@ -13,6 +13,7 @@ from .industrial_classificataion_manager import initialize_industrial_classifica
 from .model.index_daily_item import IndexDailyItem
 
 from .stock_basics_manager import update_stock_basics, get_stock_basics
+from .trade_calendar_manager import init_trade_calendar
 from .stock_trading_info_manager import initialize_daily_trading_info, update_daily_trading_info_for, update_daily_trading_info
 
 

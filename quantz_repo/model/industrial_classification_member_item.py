@@ -1,4 +1,4 @@
-from mongoengine import Document, StringField
+from mongoengine import Document, LongField, StringField
 
 
 class IndustrialClassficationMemberItem(Document):
@@ -13,9 +13,23 @@ class IndustrialClassficationMemberItem(Document):
     con_code = StringField(required=True)
     # 成分股名称
     con_name = StringField(required=True)
-    # 进入行业分类的时间
-    in_date = StringField(required=True)
+    # 进入行业分类的时间,毫秒
+    in_date = LongField(required=True)
     # 从行业分类移除的时间
-    out_date = StringField(required=True)
+    out_date = LongField(required=True)
     # 是否是最新的数据, Y/N
     is_new = StringField(required=True)
+    meta = {
+        'indexes': [
+            {
+                'name': 'index_code_index',
+                'fields': ['index_code'],
+            },
+            {
+                'name': 'index_code_in_index',
+                'fields': ['index_code', 'in_date']
+            },
+        ],
+        'index_background': True,
+        'auto_create_index': True
+    }

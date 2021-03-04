@@ -27,6 +27,18 @@ class IndexDailyItem(Document):
     vol = FloatField(required=True)
     # 成交额(千)
     amount = FloatField(required=True)
+    meta = {
+        'indexes': [
+            {
+                'name': 'ts_code_index',
+                'fields': ['ts_code']
+            },
+            {
+                'name': 'ts_code_date_index',
+                'fields': ['ts_code', 'trade_date']
+            }
+        ]
+    }
 
     def __str__(self):
         return '%s %s %f %f %f %f %f %f %f %f %f' % (self.ts_code, self.trade_date, self.close, self.open, self.high, self.low,

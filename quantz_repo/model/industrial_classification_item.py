@@ -16,3 +16,13 @@ class IndustrialClassificationItem(Document):
     industry_code = StringField(required=True)
     # 行业分类来源
     src = StringField(required=True)
+    meta = {
+        'indexes': [
+            {
+                'name': 'level_index',
+                'fields': ['level'],
+            }
+        ],
+        'index_background': True,
+        'auto_create_index': True
+    }

@@ -1,10 +1,14 @@
+import time
+
 import tushare as ts
 from pandas import DataFrame
 
-from .utils.log import i as logi
 from .model.industrial_classification_item import IndustrialClassificationItem
-from .model.industrial_classification_member_item import IndustrialClassficationMemberItem
-from .utils.data_repo import mongo_2_df,  df_2_mongo
+from .model.industrial_classification_member_item import \
+    IndustrialClassficationMemberItem
+from .utils.data_repo import df_2_mongo, mongo_2_df
+from .utils.log import i as logi
+from .utils import yyyymmdd_2_int
 
 _TAG = 'IndustrialClassification'
 
@@ -18,7 +22,8 @@ def get_industrial_classifications(index_code=None, level='L2', src='SW') -> Dat
     industial_classification_df = None
     if IndustrialClassificationItem.objects(level=level).count() <= 0:
         industial_classification_df = ts.pro_api().index_classify(
-            index_code=index_code, level=level, src=src)
+            index_code=index_code, level=level, src=src,
+            fields='index_code,industry_name,industry_code,level,industry_code,src')
         df_2_mongo(industial_classification_df, IndustrialClassificationItem)
     else:
         industial_classification_df = mongo_2_df(
@@ -35,6 +40,14 @@ def get_industrial_classfication_members(index_code: str):
     if IndustrialClassficationMemberItem.objects(index_code=index_code).count() <= 0:
         members = ts.pro_api().index_member(index_code=index_code,
                                             fields='index_code,index_name,con_code,con_name,in_date,out_date,is_new')
+        members = members.rename(
+            {'in_date': 'in',  'out_date': 'out'}, axis=1)
+        members['in_date'] = members['in'].map(
+            yyyymmdd_2_int)
+        members['out_date'] = members['out'].map(
+            yyyymmdd_2_int, na_action='ignore')
+        members = members.drop(
+            ['in', 'out'], axis=1)
         df_2_mongo(members, IndustrialClassficationMemberItem)
     else:
         members = mongo_2_df(
@@ -64,3 +77,5 @@ def initialize_industrial_classification():
         for item in level_class_df.itertuples():
             # 3. 更新行业成分
             get_industrial_classfication_members(item.index_code)
+            # 每分钟最多调用150次
+            time.sleep(0.4)

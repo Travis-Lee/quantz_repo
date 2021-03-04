@@ -4,6 +4,16 @@ from mongoengine import Document, FloatField, LongField
 class UsJoblessInitialClaimItem(Document):
     when = LongField(required=True,  unique=False)
     initial_jobless = FloatField(required=True)
+    meta = {
+        'indexes': [
+            {
+                'name': 'when_index',
+                'fields': ['when']
+            }
+        ],
+        'index_background': True,
+        'auto_create_index': True
+    }
 
 
 class UsWeiItem(Document):
@@ -14,3 +24,13 @@ class UsWeiItem(Document):
     when = LongField(required=True, unique=True)
     # 对应美联储表格中 WEI 列数据
     WEI = FloatField(required=True)
+    meta = {
+        'indexes': [
+            {
+                'name': 'when_index',
+                'fields': ['when']
+            }
+        ],
+        'index_background': True,
+        'auto_create_index': True
+    }
