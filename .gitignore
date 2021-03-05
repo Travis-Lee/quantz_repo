@@ -89,3 +89,5 @@ fabric.properties
 ts_token.py
 
 /.history
+
+quantz_cfg.json
