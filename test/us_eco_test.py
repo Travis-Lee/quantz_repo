@@ -21,6 +21,10 @@ class UsaEcoTest(TestCase):
 
     def test_get_us_wei_from_gd(self):
         df = us_eco._get_us_wei_from_gd()
-        UsWeiItem.objects.insert(
-            UsWeiItem.objects.from_json(df.to_json(orient='records')))
+        # UsWeiItem.objects.insert(
+        #     UsWeiItem.objects.from_json(df.to_json(orient='records')))
+        print(df.head(5))
+
+    def test_get_us_wei_from_fred(self):
+        df = us_eco._get_us_wei_from_fred()
         print(df.head(5))

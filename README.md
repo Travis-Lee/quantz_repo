@@ -5,9 +5,10 @@
 [![CodeFactor](https://www.codefactor.io/repository/github/zhangyuz/quantz_repo/badge)](https://www.codefactor.io/repository/github/zhangyuz/quantz_repo)
 
 ## System Requirements
-1. MongoDB: quantz-repo 使用 MongoDB 作为数据存储的数据库，使用本代码之前，你必须有一个可用的 MongoDB 数据库
+1. MongoDB: quantz-repo 使用 MongoDB 作为数据存储的数据库，使用本代码之前，你必须有一个可用的 MongoDB 数据库`docker run --name quantz_mongo -d -p 27017:27017 -v you/data/path:/dadta/db mongo:4.4.2`
 2. Anaconda: 一个开箱即用的 Python 环境，笔者使用的就是Anaconda，建议使用
 3. tushare：本代码依赖tushare，你必须提前配置好 tushare 的 token（`ts.set_token('your token here')`），由于 tushare 的部分接口要求会员积分，你的 tushare 账号至少要有2000以上的积分, 参考 [https://www.waditu.com/document/1?doc_id=40](https://www.waditu.com/document/1?doc_id=40)
+4. https://fred.stlouisfed.org/docs/api/fred/, FRED 开发者 api key
 
 ## Installation
 ```bash

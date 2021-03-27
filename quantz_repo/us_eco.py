@@ -11,6 +11,8 @@ from pandas import DataFrame
 from .model.us_eco_models import UsJoblessInitialClaimItem, UsWeiItem
 from .utils.data_repo import df_2_mongo, mongo_2_df
 from .utils.date_time import get_last_thursday
+from .utils.fred import Fred
+from .utils import log
 
 
 def update_us_initial_jobless():
@@ -65,6 +67,28 @@ def get_us_initial_jobless(limit: int = 300):
     return result
 
 
+def _get_us_wei_from_fred() -> DataFrame:
+    # 从 fred 下载 wei 数据
+    try:
+        wei_json = Fred().series.observations(
+            {'series_id': 'wei', 'sort_order': 'desc'})
+        wei_df = DataFrame(wei_json['observations'])
+        wei_df['value'] = wei_df['value'].astype(np.float)
+        # 将 yyyy-mm-dd 格式的日期转换成 ms
+        wei_df['date'] = wei_df['date'].astype(np.datetime64)
+        wei_df['date'] = wei_df['date'].astype(np.int64)
+        wei_df['date'] = wei_df['date']/100000
+        wei_df['date'] = wei_df['date'].astype(np.int64)
+        wei_df.drop(axis=1, inplace=True, columns=[
+                    'realtime_start', 'realtime_end'])
+        print(wei_df.dtypes)
+        print(wei_df.head)
+        return wei_df
+    except BaseException as e:
+        log.e('Failed to obtain WEI from fred cause %s' % e)
+        return DataFrame()
+
+
 def _get_us_wei_from_gd() -> pd.DataFrame:
     '''
     从 Google Drive 下载 WEI 数据，并保存到数据库中,参考 https://www.jimstock.org/
@@ -74,14 +98,15 @@ def _get_us_wei_from_gd() -> pd.DataFrame:
     print('\n%s' % wei_file)
     with pd.ExcelFile(wei_file) as xls:
         wei_df = pd.read_excel(xls, sheet_name='Sheet1')
-    wei_when = wei_df['Date'].astype(np.int64)
-    print(wei_when)
+    wei_date = wei_df['Date'].astype(np.int64)
+    print(wei_date)
     # 以毫秒时间戳保存时间
-    wei_when = wei_when / 1000000
-    print(wei_when)
-    wei_df['when'] = wei_when
+    wei_date = wei_date / 1000000
+    print(wei_date)
+    wei_df['date'] = wei_date.astype(np.int64)
     # wei_df.rename(axis=1, columns={'Date': 'when'})
     wei_df = wei_df.drop('Date', axis=1)
+    wei_df.rename(columns={'WEI': 'value'}, inplace=True)
     # wei_df = wei_df.sort_values(
     #     by=['when'], ascending=False, ignore_index=True)
     os.remove(wei_file)
@@ -92,13 +117,14 @@ def update_us_wei():
     '''
     更新数据库中 WEI 数据到最新。若有更新，返回最新的全量 WEI 数据， 否则返回 None
     '''
-    latest_wei_item = UsWeiItem.objects.order_by('-when').limit(1).first()
+    latest_wei_item = UsWeiItem.objects.order_by('-date').limit(1).first()
     result_df = None
     if latest_wei_item is None:
         # 数据库中没有WEI数据，初始化
-        result_df = _get_us_wei_from_gd()
+        # result_df = _get_us_wei_from_gd(),不再从Google drive 下载wei数据
+        result_df = _get_us_wei_from_fred()
         df_2_mongo(result_df, UsWeiItem)
-    elif datetime.today() - datetime.fromtimestamp(latest_wei_item.when/1000) >= timedelta(days=12):
+    elif datetime.today() - datetime.fromtimestamp(latest_wei_item.date/1000) >= timedelta(days=12):
         # 数据库中包含了WEI数据，但是最新 WEI 距今1周及以上
         # FIXME: WEI 数据的时间与WEI的发布时间存在大概5天时间差，可能导致重复多次下载数据，
         # 上边的12=7+5是经验值，随着使用增加继续优化这个数值
@@ -117,4 +143,4 @@ def get_us_wei() -> DataFrame:
     if wei_df is not None and not wei_df.empty:
         return wei_df
     else:
-        return mongo_2_df(UsWeiItem.objects.order_by('-when'))
+        return mongo_2_df(UsWeiItem.objects.order_by('-date'))
