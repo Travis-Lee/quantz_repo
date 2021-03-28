@@ -23,6 +23,22 @@ def ma_for(data: DataFrame, args: dict) -> DataFrame:
     return data
 
 
+def initialize_daily_trading_info_for(ts_code: str):
+    '''
+    '''
+    log.i(__TAG__, ts_code)
+    daily_df = ts.pro_bar(
+        ts_code=ts_code, asset='E', adj='qfq', freq='D')
+    daily_df = daily_df.sort_values(
+        by=['trade_date'], ascending=True, ignore_index=True)
+    daily_df = daily_df.rename({'trade_date': 't'}, axis=1)
+    daily_df['trade_date'] = daily_df['t'].map(yyyymmdd_2_int)
+    daily_df = daily_df.drop('t', axis=1)
+    daily_df = ma_for(daily_df, {'close': [20, 60]})
+    df_2_mongo(daily_df, BasicTradingInfoItem)
+    log.d(__TAG__, daily_df.tail(3))
+
+
 def initialize_daily_trading_info():
     '''
     日线信息初始化，从TS获取数据，并计算SMA 20 60 收存入数据库
@@ -32,19 +48,17 @@ def initialize_daily_trading_info():
     basics = get_stock_basics()
     if not basics.empty:
         for i in basics.itertuples():
+            if BasicTradingInfoItem.objects(ts_code=i.ts_code).count() == 0:
+                initialize_daily_trading_info_for(i.ts_code)
+            else:
+                update_daily_trading_info_for(i.ts_code)
             # count += 1
-            daily_df = ts.pro_bar(
-                ts_code=i.ts_code, asset='E', adj='qfq', freq='D')
-            daily_df = daily_df.sort_values(
-                by=['trade_date'], ascending=True, ignore_index=True)
-            daily_df = daily_df.rename({'trade_date': 't'}, axis=1)
-            daily_df['trade_date'] = daily_df['t'].map(yyyymmdd_2_int)
-            daily_df = daily_df.drop('t', axis=1)
-            daily_df = ma_for(daily_df, {'close': [20, 60]})
-            df_2_mongo(daily_df, BasicTradingInfoItem)
-            print(daily_df.tail(3))
             # if count > 3:
             #    break
+        log.i(__TAG__, 'Daily trading info initialized ✔ ✔ ✔')
+    else:
+        log.i(
+            __TAG__, 'Failed to initialize daily trading info cause empty stock list ✘ ✘ ✘')
 
 
 def update_daily_trading_info_for(ts_code: str):
@@ -63,6 +77,7 @@ def update_daily_trading_info_for(ts_code: str):
         return
     daily_df = ts.pro_bar(ts_code=ts_code, start_date=get_next_day_in_YYYYMMDD(
         latest_item.trade_date), asset='E', adj='qfq', freq='D')
+    # TODO: 将get_next_day_in_YYYYMMDD 改为获取下一个交易日，如果下一个交易日是未来，跳过更新
     if daily_df is None:
         log.i(__TAG__, 'No data updated since %s for %s' %
               (timestamp_2_YYYYMMDD(latest_item.trade_date), ts_code))
