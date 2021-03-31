@@ -21,14 +21,14 @@ class UsWeiItem(Document):
     美联储每周经济指数（Weekly Economic Index (WEI)），来自 https://www.jimstock.org/
     '''
     # 对应美联储表格中 Date 列数据
-    date = LongField(required=True, unique=True)
+    DATE = LongField(required=True, unique=True)
     # 对应美联储表格中 WEI 列数据
-    value = FloatField(required=True)
+    WEI = FloatField(required=True)
     meta = {
         'indexes': [
             {
                 'name': 'date_index',
-                'fields': ['date']
+                'fields': ['DATE']
             }
         ],
         'index_background': True,
