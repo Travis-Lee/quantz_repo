@@ -1,5 +1,5 @@
 
-from mongoengine import Document, StringField
+from mongoengine import Document, StringField, LongField
 
 
 class IndustrialClassificationItem(Document):
@@ -14,13 +14,15 @@ class IndustrialClassificationItem(Document):
     level = StringField(required=True)
     # 行业代码
     industry_code = StringField(required=True)
+    # 发布时间
+    declaredate = LongField(required=True)
     # 行业分类来源
     src = StringField(required=True)
     meta = {
         'indexes': [
             {
                 'name': 'level_index',
-                'fields': ['level'],
+                'fields': ['level', 'declaredate'],
             }
         ],
         'index_background': True,

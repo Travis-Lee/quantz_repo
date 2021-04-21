@@ -41,3 +41,17 @@ def get_next_day_in_YYYYMMDD(ms: int):
     ms这个时间点之后一天的日期，ms单位是毫秒
     '''
     return datetime.fromtimestamp(ms/1000 + 3600 * 24).strftime('%Y%m%d')
+
+
+def now_2_slash_datetime():
+    '''
+    格式化 当前时间为 yyyy/mm/dd hh:mm:ss
+    '''
+    return datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')
+
+
+def now_2_milisec():
+    '''
+    当前时间戳，毫秒
+    '''
+    return int(datetime.datetime.now().timestamp())*1000

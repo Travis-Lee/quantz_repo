@@ -17,6 +17,8 @@ class IndustrialClassficationMemberItem(Document):
     in_date = LongField(required=True)
     # 从行业分类移除的时间
     out_date = LongField(required=True)
+    # 数据发布时间
+    declaredate = LongField(required=True)
     # 是否是最新的数据, Y/N
     is_new = StringField(required=True)
     meta = {
