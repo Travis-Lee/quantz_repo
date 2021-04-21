@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from pandas import DataFrame
 
-from .model.us_eco_models import UsJoblessInitialClaimItem, UsWeiItem
+from .model.us_eco_models import UsJoblessContinuedClaimItem, UsJoblessInitialClaimItem, UsWeiItem
 from .utils.data_repo import df_2_mongo, mongo_2_df
 from .utils.date_time import get_last_thursday
 from .utils.fred import Fred
@@ -20,17 +20,24 @@ def update_us_initial_jobless():
      更新美国首次申领失业金人数到 MongoDB
      TODO: 1. 增加网络异常处理 2. 增加在内存中缓存DataFrame数据，不需要每次都和抓取的数据
     '''
-    us_initial_jobless = ak.macro_usa_initial_jobless()
-    temp_df = pd.DataFrame(data={'when': us_initial_jobless.index.astype(
-        np.int64)/1000000, 'initial_jobless': us_initial_jobless.values})
-    item = UsJoblessInitialClaimItem.objects.order_by('-when').limit(1).first()
+    jobless_json = Fred().series.observations(
+        {'series_id': 'ICSA', 'sort_order': 'desc'})
+    jobless_df = DataFrame(jobless_json['observations'])
+    jobless_df['ICSA'] = jobless_df['value'].astype(np.float)
+    # 将 yyyy-mm-dd 格式的日期转换成 ms
+    jobless_df['DATE'] = jobless_df['date'].astype(np.datetime64)
+    jobless_df['DATE'] = jobless_df['DATE'].astype(np.int64)
+    jobless_df['DATE'] = jobless_df['DATE']/1000000
+    jobless_df['DATE'] = jobless_df['DATE'].astype(np.int64)
+    jobless_df.drop(axis=1, inplace=True, columns=[
+                    'realtime_start', 'realtime_end', 'date', 'value'])
+    print(jobless_df.head)
+    item = UsJoblessInitialClaimItem.objects.order_by('-DATE').limit(1).first()
     if item is not None:
-        temp_df = temp_df[temp_df['when'] > item.when]
-    # temp_df = temp_df.sort_values(
-    #     by=['when'], ascending=False, ignore_index=True)
-    if (temp_df.shape[0] > 0):
-        df_2_mongo(temp_df, UsJoblessInitialClaimItem)
-    return temp_df
+        jobless_df = jobless_df[jobless_df['DATE'] > item.DATE]
+    if (jobless_df.shape[0] > 0):
+        df_2_mongo(jobless_df, UsJoblessInitialClaimItem)
+    return jobless_df
 
 
 def jobless_transformer(x):
@@ -52,11 +59,11 @@ def get_us_initial_jobless(limit: int = 300):
     # local db, if not,get it from akshare
     last_thursday = get_last_thursday()
     latest_item = UsJoblessInitialClaimItem.objects.order_by(
-        '-when').limit(1).first()
-    if latest_item is None or last_thursday.timestamp() > latest_item.when:
+        '-DATE').limit(1).first()
+    if latest_item is None or last_thursday.timestamp() > latest_item.DATE:
         update_us_initial_jobless()
     jobless_claims = UsJoblessInitialClaimItem.objects.order_by(
-        '-when').limit(limit)
+        '-DATE').limit(limit)
     jobless_claims_df = pd.DataFrame.from_dict(
         json.loads(jobless_claims.to_json()))
     # remove column _id
@@ -129,7 +136,8 @@ def update_us_wei():
         # FIXME: WEI 数据的时间与WEI的发布时间存在大概5天时间差，可能导致重复多次下载数据，
         # 上边的12=7+5是经验值，随着使用增加继续优化这个数值
         UsWeiItem.drop_collection()
-        result_df = _get_us_wei_from_gd()
+        # TODO: 使用增量更新，不再清空数据后重新获取
+        result_df = _get_us_wei_from_fred()
         df_2_mongo(result_df, UsWeiItem)
     return result_df
 
@@ -144,3 +152,60 @@ def get_us_wei() -> DataFrame:
         return wei_df
     else:
         return mongo_2_df(UsWeiItem.objects.order_by('-DATE'))
+
+
+def _get_us_ccsa_from_fred() -> DataFrame:
+    '''
+    从 https://fred.stlouisfed.org/series/CCSA 获取持续申领失业金人数
+    '''
+    try:
+        ccsa_json = Fred().series.observations(
+            {'series_id': 'ccsa', 'sort_order': 'desc'})
+        ccsa_df = DataFrame(ccsa_json['observations'])
+        ccsa_df['CCSA'] = ccsa_df['value'].astype(np.float)
+        # 将 yyyy-mm-dd 格式的日期转换成 ms
+        ccsa_df['DATE'] = ccsa_df['date'].astype(np.datetime64)
+        ccsa_df['DATE'] = ccsa_df['DATE'].astype(np.int64)
+        ccsa_df['DATE'] = ccsa_df['DATE']/1000000
+        ccsa_df['DATE'] = ccsa_df['DATE'].astype(np.int64)
+        ccsa_df.drop(axis=1, inplace=True, columns=[
+            'realtime_start', 'realtime_end', 'date', 'value'])
+        print(ccsa_df.dtypes)
+        print(ccsa_df.head)
+        return ccsa_df
+    except BaseException as e:
+        log.e('Failed to obtain WEI from fred cause %s' % e)
+        return DataFrame()
+
+
+def update_us_ccsa() -> DataFrame:
+    '''
+    每周六更新
+    '''
+    latest_ccsa_item = UsJoblessContinuedClaimItem.objects.order_by(
+        '-DATE').limit(1).first()
+    result_df = None
+    if latest_ccsa_item is None:
+        # 数据库中没有CCSA数据，初始化
+        result_df = _get_us_ccsa_from_fred()
+        df_2_mongo(result_df, UsJoblessContinuedClaimItem)
+        return result_df
+    elif datetime.today() - datetime.fromtimestamp(latest_ccsa_item.DATE/1000) >= timedelta(days=7):
+        UsJoblessContinuedClaimItem.drop_collection()
+        # TODO: 使用增量更新，不再清空数据后重新获取
+        result_df = _get_us_ccsa_from_fred()
+        df_2_mongo(result_df, UsJoblessContinuedClaimItem)
+        return result_df
+    # TODO: 为了保持返回结果统一性，所有返回 DataFrame 的方法不再返回NONE，而是 返回空 DataFrame
+    return DataFrame()
+
+
+def get_us_ccsa() -> DataFrame:
+    '''
+    获取美国持续申领失业金人数, DATE, CCSA，每周六更新
+    '''
+    ccsa_df = update_us_ccsa()
+    if not ccsa_df.empty:
+        return ccsa_df
+    else:
+        return mongo_2_df(UsJoblessContinuedClaimItem.objects.order_by('-DATE'))

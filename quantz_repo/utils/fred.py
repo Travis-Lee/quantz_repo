@@ -37,6 +37,7 @@ class Fred:
             print('Invalid args%s' % args)
         # TODO: 增加网络错误的处理
         # print(resp.json())
+        print('Observations got from %s' % resp.url)
         return resp.json()
 
     def __getattr__(self, name):

@@ -2,13 +2,33 @@ from mongoengine import Document, FloatField, LongField
 
 
 class UsJoblessInitialClaimItem(Document):
-    when = LongField(required=True,  unique=False)
-    initial_jobless = FloatField(required=True)
+    DATE = LongField(required=True,  unique=False)
+    ICSA = FloatField(required=True)
     meta = {
         'indexes': [
             {
-                'name': 'when_index',
-                'fields': ['when']
+                'name': 'date_index',
+                'fields': ['DATE']
+            }
+        ],
+        'index_background': True,
+        'auto_create_index': True
+    }
+
+
+class UsJoblessContinuedClaimItem(Document):
+    '''
+    持续申领失业金人数
+    TODO: 根据FRED数据的名字，统一命名数据模型
+    CCSA
+    '''
+    DATE = LongField(required=True,  unique=False)
+    CCSA = FloatField(required=True)
+    meta = {
+        'indexes': [
+            {
+                'name': 'date_index',
+                'fields': ['DATE']
             }
         ],
         'index_background': True,
