@@ -8,12 +8,14 @@ import requests
 import tushare as ts
 from pandas import DataFrame
 
-from .quantz_exception import QuantzException
 from .model.industrial_classification_item import IndustrialClassificationItem
 from .model.industrial_classification_member_item import \
     IndustrialClassficationMemberItem
 from .models.industry_classification_meta import IndustryClassificatoinMetaItem
-from .utils import now_2_milisec, yyyymmdd_2_int
+from .quantz_exception import QuantzException
+from .trade_calendar_manager import is_trading_day
+from .utils import (millisec_2_YYYYMMDD, now_2_milisec, today_2_millisec,
+                    yyyymmdd_2_int)
 from .utils.data_repo import df_2_mongo, mongo_2_df
 from .utils.log import d as logd
 from .utils.log import e as loge
@@ -21,6 +23,7 @@ from .utils.log import i as logi
 
 '''
 从 Tushare 获取获取行业分类数据，从SW网站获取更新通知。收到行业分类数据更新通知后，更新行业分类数据
+TODO: SW行业信息是经常改变的，当前根据SW网站更新公告来更新行业分类数据并不能保证获取最新的行业分类数据，需要每天获取最新的分类数据，与本地对比来确定是否有更新
 '''
 
 _TAG = 'IndustrialClassification'
@@ -198,16 +201,27 @@ def update_industry_classification():
     根据数据库中的数据和SW发布的公告的时间差来更新行业分数据，
     建议每天运行一次,在调用此函数之前，必须确保行业分类数据已经初始化过
     '''
-    sw_decdate_df = _get_industry_member_declaredate_from_sw()
+    schedule_by_sw = False
+    decdate_df = None
+    if schedule_by_sw:
+        decdate_df = _get_industry_member_declaredate_from_sw()
+    else:
+        today_in_ms = today_2_millisec()
+        if not is_trading_day(today_in_ms):
+            loge(_TAG, '%s is not a trading day, skipping update industry classification' %
+                 millisec_2_YYYYMMDD(today_in_ms))
+            return
+        decdate_df = DataFrame(
+            {'title': ['trade_date'], 'declaredate': today_2_millisec()})
     local_decdate_item = IndustryClassificatoinMetaItem.objects().order_by(
         '-declaredate').limit(1).first()
     if local_decdate_item is None:
-        logi(_TAG, 'Loccal industry classification meta empty, skipping update')
+        logi(_TAG, 'Loccal industry classification meta empty, Initialize industry classification first')
         return
-    if sw_decdate_df.iloc[0][1] > local_decdate_item.declaredate:
+    if decdate_df.iloc[0][1] > local_decdate_item.declaredate:
         logi(_TAG, 'Updating industry classification')
         # 更新数据库
         _update_industry_classification(
-            title=sw_decdate_df.iloc[0][0], declaredate=sw_decdate_df.iloc[0][1])
+            title=decdate_df.iloc[0][0], declaredate=decdate_df.iloc[0][1])
     else:
         logi(_TAG, 'Local industry classification already latest, skip updating')

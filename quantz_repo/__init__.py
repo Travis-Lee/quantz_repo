@@ -15,7 +15,8 @@ from .stock_basics_manager import get_stock_basics, update_stock_basics
 from .stock_trading_info_manager import (initialize_daily_trading_info,
                                          update_daily_trading_info,
                                          update_daily_trading_info_for)
-from .trade_calendar_manager import init_trade_calendar
+from .trade_calendar_manager import (get_trade_dates_between,
+                                     init_trade_calendar, is_trading_day)
 from .us_eco import get_us_ccsa, get_us_initial_jobless, get_us_wei
 
 

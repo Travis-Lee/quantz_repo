@@ -20,6 +20,11 @@ class MarketWidthItem(Document):
                 'unique': False
             },
             {
+                'name': 'industry_code_date_index',
+                'fields': ['index_code', 'trade_date'],
+                'unique': False
+            },
+            {
                 'name': 'index_code_level_date_index',
                 'fields': ['index_code', 'industry_level', 'trade_date'],
                 'unique': False

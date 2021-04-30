@@ -4,7 +4,7 @@ import pandas as pd
 import tushare as ts
 from pandas import DataFrame, Series
 
-from . import get_stock_basics
+from . import get_stock_basics, QuantzException
 from .model import BasicStockInfoItem, BasicTradingInfoItem
 from .utils import (df_2_mongo, get_next_day_in_YYYYMMDD, mongo_2_df,
                     timestamp_2_YYYYMMDD, yyyymmdd_2_int, log)
@@ -25,6 +25,7 @@ def ma_for(data: DataFrame, args: dict) -> DataFrame:
 
 def initialize_daily_trading_info_for(ts_code: str):
     '''
+    初始化某只股票的日线数据到本地mongo
     '''
     log.i(__TAG__, ts_code)
     daily_df = ts.pro_bar(
@@ -69,11 +70,14 @@ def update_daily_trading_info_for(ts_code: str):
     latest_item = BasicTradingInfoItem.objects(
         ts_code=ts_code).order_by('-trade_date').first()
     if latest_item is None:
-        log.i(__TAG__, 'No data for %s, please check ts_code and make sure your DB initialized' % ts_code)
+        '''
+        上市新股，在初始化数据库时未包含在数据库中，现在初始化这个新股的数据
+        '''
+        initialize_daily_trading_info_for(ts_code)
         return
     if latest_item.trade_date >= datetime.datetime.today().timestamp() * 1000:
         # TODO: 待改进，使用整天时间对比
-        log.i(__TAG__, 'No need to get data from future')
+        log.i(__TAG__, 'Already latest daily info for %s' % ts_code)
         return
     daily_df = ts.pro_bar(ts_code=ts_code, start_date=get_next_day_in_YYYYMMDD(
         latest_item.trade_date), asset='E', adj='qfq', freq='D')
@@ -101,12 +105,16 @@ def update_daily_trading_info_for(ts_code: str):
 
 def update_daily_trading_info():
     basics = get_stock_basics()
-    if basics is None:
+    if basics is None or basics.empty:
         log.e(__TAG__,  'Failed to get stock list, please make sure your db initialized or available network connection')
         return
     if not basics.empty:
+        start = datetime.datetime.now()
         for i in basics.itertuples():
             log.i(__TAG__, 'Updating for %s:%s' % (i.ts_code, i.name))
             print(update_daily_trading_info_for(i.ts_code))
+        end = datetime.datetime.now()
+        log.i(__TAG__,  'Update start at %s end at %s, %s' %
+              (start.strftime('%H:%M:%S'), end.strftime('%H:%M:%S'), end - start))
     else:
         log.e(__TAG__,  'Empty stock list got, please make sure your db initialized or available network connection')

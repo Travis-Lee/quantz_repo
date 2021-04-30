@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 
-import tushare as ts
-from pandas import Series
+import datetime
 
-from .utils import log
-from .utils import df_2_mongo, yyyymmdd_2_int
+import tushare as ts
+from pandas import DataFrame, Series
+
 from .models import TradeCalendarItem
+from .utils import (datetime_2_date_millisec, df_2_mongo, log, mongo_2_df,
+                    today_2_millisec, yyyymmdd_2_int, now_2_YYYYMMDD)
+
+from .quantz_exception import QuantzException
 
 D = True
 
@@ -24,7 +28,7 @@ class TradeCalendarManager(object):
         :param date: [description]
         :type date: str
         :return: 下一个交易日 YYYYMMDD格式的字符串,如果无有效交易日期，返回 None
-        :rtype: str 
+        :rtype: str
         """
         pro = ts.pro_api()
         try:
@@ -45,10 +49,19 @@ class TradeCalendarManager(object):
             return 'SZSE'
 
 
+def is_trading_day(trade_date: int, exchange: str = 'SSE') -> bool:
+    '''
+    判断 exchange 在 trade_date当天是否是交易日
+    '''
+    return TradeCalendarItem.objects(
+        is_open=1, exchange=exchange, cal_date=trade_date).count() > 0
+
+
 def init_trade_calendar():
     '''
     初始化交易所交易日历，保存到数据库
     '''
+    TradeCalendarItem.drop_collection()
     for ex in ['SSE', 'SZSE']:
         __init_trade_calendar_for(ex)
 
@@ -72,3 +85,26 @@ def get_last_trade_date_timestamp__for(exchange: str) -> int:
     FIXME:实现获取最近一个交易日
     '''
     pass
+
+
+def get_trade_dates_between(since: str, end: str = now_2_YYYYMMDD(), exchange='SSE') -> DataFrame:
+    '''
+    since:yyyymmddd的日期
+    end:yyyymmddd的结束日期
+    exchange:交易所，SSE 或 SZSE
+    否则抛出 QuantzException
+    '''
+    since_ms = 0
+    end_ms = 0
+    try:
+        since_ms = int(datetime.datetime.strptime(
+            since, '%Y%m%d').timestamp())*1000
+    except Exception as e:
+        raise QuantzException('Invalid since format:%s' % e)
+    try:
+        end_ms = int(datetime.datetime.strptime(
+            end, '%Y%m%d').timestamp())*1000
+    except Exception as e:
+        raise QuantzException('Invalid end format:%s' % e)
+    return mongo_2_df(TradeCalendarItem.objects(
+        is_open=1, cal_date__gte=since_ms, cal_date__lte=end_ms, exchange=exchange).order_by('cal_date'))

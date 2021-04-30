@@ -30,6 +30,7 @@ def update_stock_basics():
             log.e(__TAG__, 'Failed to get stock basic from ts')
     except BaseException as e:
         log.e(__TAG__, 'Get exception while getting stock basics from ts:\n%s' % e)
+        return DataFrame()
 
 
 def get_stock_basics() -> DataFrame:

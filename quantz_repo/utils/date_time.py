@@ -19,6 +19,10 @@ def timestamp_2_YYYYMMDD(timestamp_in_milliseconds: int) -> str:
     return datetime.fromtimestamp(timestamp_in_milliseconds/1000).strftime('%Y%m%d')
 
 
+def millisec_2_YYYYMMDD(milliseconds: int) -> int:
+    return datetime.fromtimestamp(milliseconds/1000).strftime('%Y%m%d')
+
+
 def get_last_thursday() -> date:
     '''
     get the date of last thursday
@@ -55,3 +59,18 @@ def now_2_milisec():
     当前时间戳，毫秒
     '''
     return int(datetime.datetime.now().timestamp())*1000
+
+
+def today_2_millisec():
+    '''
+    获取今日的毫秒表示
+    '''
+    today = date.today()
+    return int(datetime(today.year, today.month, today.day).timestamp()*1000)
+
+
+def datetime_2_date_millisec(sometime: datetime) -> int:
+    '''
+    获取某个时间的日期，返回毫秒
+    '''
+    return int(sometime.timestamp() - sometime.timestamp() % (60*60*24))*1000
