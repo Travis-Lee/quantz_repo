@@ -4,3 +4,4 @@ akshare
 gdown == 3.12.2
 investpy
 requests
+apscheduler==3.7.0

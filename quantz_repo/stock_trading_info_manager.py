@@ -1,14 +1,16 @@
-import akshare as ak
 import datetime
+
+import akshare as ak
 import pandas as pd
 import tushare as ts
 from pandas import DataFrame, Series
 
-from . import get_stock_basics, QuantzException
+from . import QuantzException, get_stock_basics
 from .model import BasicStockInfoItem, BasicTradingInfoItem
-from .utils import (df_2_mongo, get_next_day_in_YYYYMMDD, mongo_2_df,
-                    timestamp_2_YYYYMMDD, yyyymmdd_2_int, log)
-
+from .trade_calendar_manager import get_next_trade_date_of
+from .utils import (df_2_mongo, get_next_day_in_YYYYMMDD, log,
+                    millisec_2_YYYYMMDD, mongo_2_df, now_2_YYYYMMDD,
+                    timestamp_2_YYYYMMDD, yyyymmdd_2_int)
 
 __TAG__ = 'StockTradingInfo'
 
@@ -30,6 +32,9 @@ def initialize_daily_trading_info_for(ts_code: str):
     log.i(__TAG__, ts_code)
     daily_df = ts.pro_bar(
         ts_code=ts_code, asset='E', adj='qfq', freq='D')
+    if daily_df is None or daily_df.empty:
+        log.i(__TAG__, 'No daily trading info for %s initialization, might be new listed' % ts_code)
+        return
     daily_df = daily_df.sort_values(
         by=['trade_date'], ascending=True, ignore_index=True)
     daily_df = daily_df.rename({'trade_date': 't'}, axis=1)
@@ -74,6 +79,15 @@ def update_daily_trading_info_for(ts_code: str):
         上市新股，在初始化数据库时未包含在数据库中，现在初始化这个新股的数据
         '''
         initialize_daily_trading_info_for(ts_code)
+        return
+    next_trade_date = get_next_trade_date_of(
+        millisec_2_YYYYMMDD(latest_item.trade_date))
+    if next_trade_date is None:
+        log.i(__TAG__, 'No trade date since %s for %s' %
+              (latest_item.trade_date, ts_code))
+        return
+    if next_trade_date >= now_2_YYYYMMDD():
+        log.i(__TAG__, 'Next trade date in future, skipping update daily trading info for %s' % ts_code)
         return
     if latest_item.trade_date >= datetime.datetime.today().timestamp() * 1000:
         # TODO: 待改进，使用整天时间对比

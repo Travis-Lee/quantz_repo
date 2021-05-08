@@ -8,13 +8,16 @@ import requests
 import tushare as ts
 from pandas import DataFrame
 
+from .model.basic_trading_info_item import BasicTradingInfoItem
 from .model.industrial_classification_item import IndustrialClassificationItem
 from .model.industrial_classification_member_item import \
     IndustrialClassficationMemberItem
 from .models.industry_classification_meta import IndustryClassificatoinMetaItem
+from .models.market_width_item import MarketWidthItem
 from .quantz_exception import QuantzException
-from .trade_calendar_manager import is_trading_day
-from .utils import (millisec_2_YYYYMMDD, now_2_milisec, today_2_millisec,
+from .trade_calendar_manager import get_trade_dates_between, is_trading_day
+from .utils import (millisec_2_YYYYMMDD, now_2_milisec, now_2_YYYYMMDD,
+                    round_half_up, timestamp_2_YYYYMMDD, today_2_millisec,
                     yyyymmdd_2_int)
 from .utils.data_repo import df_2_mongo, mongo_2_df
 from .utils.log import d as logd
@@ -225,3 +228,90 @@ def update_industry_classification():
             title=decdate_df.iloc[0][0], declaredate=decdate_df.iloc[0][1])
     else:
         logi(_TAG, 'Local industry classification already latest, skip updating')
+
+
+def rank_industry_at(index_code: str, industry_name: str, level: str, trade_date: int, force: bool = False):
+    '''
+    计算某个行业在某天的分值，
+    index_code: 行业代码，申万的
+    trade_date: 交易日 
+    force: 是否强制更新
+    如何初始化过去的市场宽度？ 
+    1）从何时开始? 20
+    2）是否所有时间内行业分类的成员是相同的？若不相同如何处理？ 无法拿到当时的数据，按照当前分类处理
+    3）某行业分类内的股票在某段时间之前可能还没有上市，应该如何处理？ 按照当时实际股票个数来计算分数，可能导致很久之前的某个时间，某个股票不会被计算到任意的分数中，接受现状，TODO:以后有数据再更新
+    4) 按照调入日期计算，对于一段时间之前的值计算肯定是不准确的，只能记录当前值逐步积累
+    '''
+    print('rank %s on %s' % (index_code, timestamp_2_YYYYMMDD(trade_date)))
+    the_item = MarketWidthItem.objects(
+        index_code__iexact=index_code, trade_date=trade_date)
+    if force:
+        # 删除已有数据
+        the_item.delete()
+        print('Rank deleted')
+    elif the_item.count() > 0:
+        # print('Already ranked for %s on %s，Skipping' % (index_code, timestamp_2_YYYYMMDD(trade_date)));
+        return
+    members = get_industrial_classfication_members(
+        index_code, trade_date=trade_date)
+    print('members')
+    print(members.shape)
+    if not members.empty:
+        m_list = list(members['con_code'].array)
+        # print(m_list)
+        member_stocks_df = mongo_2_df(BasicTradingInfoItem.objects(
+            ts_code__in=m_list, trade_date=trade_date))
+        if member_stocks_df.empty:
+            #raise QuantzException('Faile to get trading info for %s on %s(%d), try update trading info first' % (index_code, timestamp_2_YYYYMMDD(trade_date), trade_date))
+            print('Faile to get trading info for %s on %s(%d), try update trading info first' % (
+                index_code, timestamp_2_YYYYMMDD(trade_date), trade_date))
+            return
+        # print('members stock trading info')
+        # print(member_stocks_df.shape)
+        rank = 0
+        try:
+            gt_df = member_stocks_df[member_stocks_df['close']
+                                     >= member_stocks_df['ma_close_20']]
+        # print('strong items')
+        # print(gt_df.shape)
+            rank = round_half_up(
+                100 * gt_df.shape[0] / member_stocks_df.shape[0])
+        except Exception as e:
+            rank = 0
+            print('Failed to rank %s on %s(%d) cause:%s, you should check the data' % (
+                index_code, timestamp_2_YYYYMMDD(trade_date), trade_date, e))
+        # print('rank: %f' % rank)
+        MarketWidthItem(index_code=index_code, industry_name=industry_name,
+                        industry_level=level, rank=rank, trade_date=trade_date).save()
+    else:
+        raise QuantzException('None memeber in %s before %s' % (
+            index_code, timestamp_2_YYYYMMDD(trade_date)))
+
+
+# rank_industry_at(index_code='801020.SI', industry_name='随便mingzi', trade_date=1606060800000, level='L2', force=True)
+
+def rank_industry_level_at(level: str, trade_date: int, force: bool = False):
+    industries_df = get_industrial_classifications(level=level)
+    if industries_df is None or industries_df.empty:
+        print('Failed to get industry classification for %s' % level)
+    else:
+        for i in industries_df.itertuples():
+            rank_industry_at(i.index_code, i.industry_name,
+                             level, trade_date, force)
+
+
+def rank_industry_level_between(level='L1', since: str = '20210101', end: str = now_2_YYYYMMDD()):
+    trade_cal = get_trade_dates_between(since, end)
+    for trade_date in trade_cal.itertuples():
+        rank_industry_level_at(level=level, trade_date=trade_date.cal_date)
+
+
+def rank_all_industry_between(since: str = '20210427', end: str = '20210506'):
+    for level in ['L1', 'L2', 'L3']:
+        rank_industry_level_between(level=level, since=since, end=end)
+
+
+def rank_all_industry():
+    """更新所有行业评分到最新
+    """
+    rank_all_industry_between()

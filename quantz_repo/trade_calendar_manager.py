@@ -6,10 +6,10 @@ import tushare as ts
 from pandas import DataFrame, Series
 
 from .models import TradeCalendarItem
-from .utils import (datetime_2_date_millisec, df_2_mongo, log, mongo_2_df,
-                    today_2_millisec, yyyymmdd_2_int, now_2_YYYYMMDD)
-
 from .quantz_exception import QuantzException
+from .utils import (datetime_2_date_millisec, df_2_mongo, log,
+                    millisec_2_YYYYMMDD, mongo_2_df, now_2_YYYYMMDD,
+                    today_2_millisec, yyyymmdd_2_int)
 
 D = True
 
@@ -108,3 +108,20 @@ def get_trade_dates_between(since: str, end: str = now_2_YYYYMMDD(), exchange='S
         raise QuantzException('Invalid end format:%s' % e)
     return mongo_2_df(TradeCalendarItem.objects(
         is_open=1, cal_date__gte=since_ms, cal_date__lte=end_ms, exchange=exchange).order_by('cal_date'))
+
+
+def get_next_trade_date_of(day: str) -> str:
+    """ 获取day的下一个交易日
+
+    :param day: 交易时间，YYYYmmdd格式
+    :type day: str
+    :return: day 的下一个交易日，YYYYmmdd
+    :rtype: str
+    """
+    day_int = yyyymmdd_2_int(day)
+    next = TradeCalendarItem.objects(is_open=1, cal_date__gt=day_int, exchange='SSE').order_by(
+        'cal_date').limit(1).first()
+    if next is not None:
+        return millisec_2_YYYYMMDD(next.cal_date)
+    else:
+        None

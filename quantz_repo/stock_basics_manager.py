@@ -34,6 +34,11 @@ def update_stock_basics():
 
 
 def get_stock_basics() -> DataFrame:
+    """ 从本地数据库获取股票基本信息数据，若本地为空，则从tushare获取全量数据并保存到数据库中
+
+    :return: 股票基本信息
+    :rtype: DataFrame
+    """
     items = BasicStockInfoItem.objects()
     if items.count() > 0:
         log.i(__TAG__, 'Get stock basics from mongo')

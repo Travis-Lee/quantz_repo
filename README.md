@@ -16,11 +16,13 @@ git clone git@github.com:zhangyuz/quantz_repo.git
 cd quantz_repo
 pip install .
 ```
+## Usage
+安装完成后，你需要调用各种初始化函数来初始化各种数据，参考下边代码，各种initialize_xxx和get_xxx。
 
-## Show Me the Code
+### Show Me the Code
 ```python
 import quantz_repo
-quantz_repo.initialize_db(db='quntz_repo', host='127.0.0.1', port=27017)
+quantz_repo.initialize_db(db='db_name', host='mongo_host', port=27017)
 quantz_repo.get_us_initial_jobless()
 quantz_repo.initialize_industrial_classification()
 quantz_repo.get_industrial_classifications(level='L2')
@@ -28,4 +30,22 @@ quantz_repo.get_industrial_classfication_members('801710.SI')
 quantz_repo.get_industrial_classification_for(ts_code='300496.SZ')
 quantz_repo.deinitialize_db()
 ```
-其他实例可以参考源码中的单元测试代码。
+API 文档待完善，其他实例可以参考源码中的单元测试代码和sample.ipynb。所有公开api都可查看quantz_repo/__init__.py,代码中有相关注释。
+
+### quantzrepoi
+用作初始化数据，安装完成后，要运行此命令并保证运行成功
+```shell
+quantzrepoi
+```
+
+### quantzrepou
+用作手动更新数据库数据到最新
+```shell
+quantzrepou
+```
+
+### quantzrepod
+这是日常更新数据库的守护进程，安装quantz_repo 完成后可以直接在命令行使用。
+```shell
+quantzrepod
+```

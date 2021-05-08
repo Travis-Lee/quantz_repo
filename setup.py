@@ -24,10 +24,11 @@ setup(
     package_data={'': ['*.*']},
     install_requires=read_file("requirements.txt").strip(),
     zip_safe=False,
-    #    entry_points={
-    #        "console_scripts": [
-    #            "ma_filter = quantz.ma_filter_main:run",
-    #            "growing_value_filter = quantz.growing_value_filter_main:run"
-    #        ]
-    #    },
+    entry_points={
+        "console_scripts": [
+            "quantzrepoi = quantz_repo.entry:quantzrepoi",
+            "quantzrepou = quantz_repo.entry:quantzrepou",
+            "quantzrepod = quantz_repo.entry:quantzrepod"
+        ]
+    },
 )
