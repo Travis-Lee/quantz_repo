@@ -86,8 +86,9 @@ def update_daily_trading_info_for(ts_code: str):
         log.i(__TAG__, 'No trade date since %s for %s' %
               (latest_item.trade_date, ts_code))
         return
-    if next_trade_date >= now_2_YYYYMMDD():
-        log.i(__TAG__, 'Next trade date in future, skipping update daily trading info for %s' % ts_code)
+    if next_trade_date > now_2_YYYYMMDD():
+        log.i(__TAG__, 'Next trade date %s in future than %s, skipping update daily trading info for %s' % (
+            next_trade_date, now_2_YYYYMMDD(), ts_code))
         return
     if latest_item.trade_date >= datetime.datetime.today().timestamp() * 1000:
         # TODO: 待改进，使用整天时间对比
@@ -118,6 +119,25 @@ def update_daily_trading_info_for(ts_code: str):
 
 
 def update_daily_trading_info():
+    basics = get_stock_basics()
+    if basics is None or basics.empty:
+        log.e(__TAG__,  'Failed to get stock list, please make sure your db initialized or available network connection')
+        return
+    if not basics.empty:
+        start = datetime.datetime.now()
+        for i in basics.itertuples():
+            log.i(__TAG__, 'Updating for %s:%s' % (i.ts_code, i.name))
+            print(update_daily_trading_info_for(i.ts_code))
+        end = datetime.datetime.now()
+        log.i(__TAG__,  'Update start at %s end at %s, %s' %
+              (start.strftime('%H:%M:%S'), end.strftime('%H:%M:%S'), end - start))
+    else:
+        log.e(__TAG__,  'Empty stock list got, please make sure your db initialized or available network connection')
+
+
+def update_daily_trading_info_in_batch():
+    ''' TODO: 实现一个批量更新数据的函数，节约数据更新时间
+    '''
     basics = get_stock_basics()
     if basics is None or basics.empty:
         log.e(__TAG__,  'Failed to get stock list, please make sure your db initialized or available network connection')

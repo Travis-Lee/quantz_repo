@@ -14,3 +14,11 @@ class IndustryClassificatoinMetaItem(Document):
     声明标题
     '''
     title = StringField(required=True)
+
+
+class IndustryClassificatoinRankMetaItem(Document):
+    """记录各个行业评分最近成功的时间
+
+    """
+    level = StringField(required=True)
+    trade_date = LongField(required=True)

@@ -9,10 +9,17 @@ from pytz import utc
 from quantz_repo import (get_us_ccsa, get_us_initial_jobless, get_us_wei,
                          initialize_daily_trading_info, initialize_db,
                          initialize_industrial_classification,
-                         update_daily_trading_info,
+                         rank_all_industry, update_daily_trading_info,
                          update_industry_classification, update_stock_basics,
                          update_us_ccsa, update_us_initial_jobless,
                          update_us_wei)
+
+
+def may_market_be_ready():
+    '''
+    判断当前市场交易数据是否可获取，若可能用，返回 True，否则返回 False
+    '''
+    return datetime.datetime.now().hour >= 17
 
 
 class DailyTrigger(BaseTrigger):
@@ -42,9 +49,7 @@ class DailyTrigger(BaseTrigger):
         now = datetime.datetime.now(csttz)
         scheduled_time = datetime.datetime(
             now.year, now.month, now.day, self.hour, self.minute, self.seconds, tzinfo=csttz)
-        if scheduled_time <= now:
-            scheduled_time = now + datetime.timedelta(minutes=2)
-        else:
+        if scheduled_time < now:
             scheduled_time = scheduled_time + datetime.timedelta(days=1)
         print('%s scheduled at %s' % (self.name, scheduled_time))
         return scheduled_time
@@ -105,10 +110,10 @@ def quantzrepod():
     }
     job_defaults = {
         'coalesce': False,
-        'max_instances': 3
+        'max_instances': 8
     }
-    scheduler = BlockingScheduler(
-        jobstores=jobstores, executors=executors, job_defaults=job_defaults, timezone='Asia/Shanghai')
+    scheduler = BlockingScheduler(  # jobstores=jobstores,
+        executors=executors, job_defaults=job_defaults, timezone='Asia/Shanghai')
     scheduler.add_job(
         update_us_wei, trigger=WeeklyTrigger(3, 19, 0, 'WeiTrigger'))
     scheduler.add_job(
@@ -121,6 +126,8 @@ def quantzrepod():
         17, 30, 0, 'update_industry_classification'))
     scheduler.add_job(update_daily_trading_info, trigger=DailyTrigger(
         18, 00, 0, 'update_daily_trading_info'))
+    scheduler.add_job(rank_all_industry, trigger=DailyTrigger(
+        19, 00, 0, 'rank_all_industry'))
     scheduler.start()
 
 
@@ -136,11 +143,15 @@ def quantzrepoi():
     update_stock_basics()
     initialize_industrial_classification()
     initialize_daily_trading_info()
+    rank_all_industry()
 
 
 def quantzrepou():
     """更新所有数据到最新
     """
+    if not may_market_be_ready():
+        print('☠☠☠ Market data may not be ready, try again later ☠☠☠')
+        return
     initialize_db('quantz')
     update_us_wei()
     update_us_initial_jobless()
@@ -148,7 +159,11 @@ def quantzrepou():
     update_stock_basics()
     update_industry_classification()
     update_daily_trading_info()
+    rank_all_industry()
 
 
 if __name__ == "__main__":
     quantzrepod()
+
+
+# FIXME: 增加命令行参数，传入quantz_config.json的路径，现在默认使用当前目录下quanz_config.json
