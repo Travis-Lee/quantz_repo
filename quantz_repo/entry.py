@@ -9,7 +9,8 @@ from pytz import utc
 from quantz_repo import (get_us_ccsa, get_us_initial_jobless, get_us_wei,
                          initialize_daily_trading_info, initialize_db,
                          initialize_industrial_classification,
-                         rank_all_industry, update_daily_trading_info,
+                         rank_all_industry,
+                         update_all_daily_trading_info_in_batch,
                          update_industry_classification, update_stock_basics,
                          update_us_ccsa, update_us_initial_jobless,
                          update_us_wei)
@@ -124,8 +125,8 @@ def quantzrepod():
         17, 0, 0, 'update_stock_basics'))
     scheduler.add_job(update_industry_classification, trigger=DailyTrigger(
         17, 30, 0, 'update_industry_classification'))
-    scheduler.add_job(update_daily_trading_info, trigger=DailyTrigger(
-        18, 00, 0, 'update_daily_trading_info'))
+    scheduler.add_job(update_all_daily_trading_info_in_batch, trigger=DailyTrigger(
+        18, 00, 0, 'update_all_daily_trading_info_in_batch'))
     scheduler.add_job(rank_all_industry, trigger=DailyTrigger(
         19, 00, 0, 'rank_all_industry'))
     scheduler.start()
@@ -158,7 +159,7 @@ def quantzrepou():
     update_us_ccsa()
     update_stock_basics()
     update_industry_classification()
-    update_daily_trading_info()
+    update_all_daily_trading_info_in_batch()
     rank_all_industry()
 
 

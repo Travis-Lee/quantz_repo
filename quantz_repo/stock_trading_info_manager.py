@@ -1,4 +1,5 @@
 import datetime
+import sys
 
 import akshare as ak
 import pandas as pd
@@ -7,7 +8,9 @@ from pandas import DataFrame, Series
 
 from . import QuantzException, get_stock_basics
 from .model import BasicStockInfoItem, BasicTradingInfoItem
-from .trade_calendar_manager import get_next_trade_date_of
+from .models import TradingInfoUpdateMetaItem
+from .trade_calendar_manager import (get_last_trade_date_in_ms_for,
+                                     get_next_trade_date_of)
 from .utils import (df_2_mongo, get_next_day_in_YYYYMMDD, log,
                     millisec_2_YYYYMMDD, mongo_2_df, now_2_YYYYMMDD,
                     timestamp_2_YYYYMMDD, yyyymmdd_2_int)
@@ -40,6 +43,7 @@ def initialize_daily_trading_info_for(ts_code: str):
     daily_df = daily_df.rename({'trade_date': 't'}, axis=1)
     daily_df['trade_date'] = daily_df['t'].map(yyyymmdd_2_int)
     daily_df = daily_df.drop('t', axis=1)
+    daily_df['freq'] = 'D'
     daily_df = ma_for(daily_df, {'close': [20, 60]})
     df_2_mongo(daily_df, BasicTradingInfoItem)
     log.d(__TAG__, daily_df.tail(3))
@@ -107,6 +111,7 @@ def update_daily_trading_info_for(ts_code: str):
         daily_df = daily_df.rename({'trade_date': 't'}, axis=1)
         daily_df['trade_date'] = daily_df['t'].map(yyyymmdd_2_int)
         daily_df = daily_df.drop('t', axis=1)
+        daily_df['freq'] = 'D'
         latest_items = mongo_2_df(BasicTradingInfoItem.objects(
             ts_code=ts_code).order_by('-trade_date').limit(60))
         latest_items = latest_items.append(daily_df)
@@ -135,20 +140,150 @@ def update_daily_trading_info():
         log.e(__TAG__,  'Empty stock list got, please make sure your db initialized or available network connection')
 
 
-def update_daily_trading_info_in_batch():
-    ''' TODO: 实现一个批量更新数据的函数，节约数据更新时间
-    '''
-    basics = get_stock_basics()
-    if basics is None or basics.empty:
-        log.e(__TAG__,  'Failed to get stock list, please make sure your db initialized or available network connection')
+PRICE_COLS = ['open', 'close', 'high', 'low', 'pre_close']
+def FORMAT(x): return '%.4f' % x
+
+
+def batch_bar(ts_code='', start_date='', end_date='', freq='D', asset='E', adj=None):
+    bars = ts.pro_bar(ts_code=ts_code, start_date=start_date,
+                      end_date=end_date, freq=freq, asset=asset)
+    bars['freq'] = 'D'
+    if adj is not None:
+        fcts = ts.pro_api().adj_factor(
+            ts_code=ts_code, start_date=start_date, end_date=end_date)
+        if fcts.shape[0] == 0:
+            print('Failed to get adj factors')
+            return
+        result = DataFrame()
+        for code in ts_code.split(','):
+            code = code.strip()
+            cur_bars = bars[bars['ts_code'] == code].reset_index(drop=True)
+            cur_fcts = fcts[fcts['ts_code'] == code].reset_index(
+                drop=True)[['trade_date', 'adj_factor']]
+            if cur_bars.empty:
+                print('No valid bar for %s between %s - %s, please check it' %
+                      (code, start_date, end_date))
+                continue
+            cur_bars = cur_bars.set_index('trade_date', drop=False).merge(
+                cur_fcts.set_index('trade_date'), left_index=True, right_index=True, how='left')
+            if 'min' in freq:
+                cur_bars = cur_bars.sort_values('trade_time', ascending=False)
+            cur_bars['adj_factor'] = cur_bars['adj_factor'].fillna(
+                method='bfill')
+            print('cur code:%s' % code)
+            print('cur_bars')
+            print(cur_bars)
+            print('cur_fcts')
+            print(cur_fcts)
+            if adj is not None and cur_fcts.empty:
+                print('Could not adj price for %s between %s-%s, cause adj factor empty' %
+                      (code, start_date, end_date))
+            for col in PRICE_COLS:
+                if adj == 'hfq' and not cur_fcts.empty:
+                    cur_bars[col] = cur_bars[col] * cur_bars['adj_factor']
+                if adj == 'qfq' and not cur_fcts.empty:
+                    cur_bars[col] = cur_bars[col] * cur_bars['adj_factor'] / \
+                        float(cur_fcts['adj_factor'][0])
+                cur_bars[col] = cur_bars[col].map(FORMAT)
+                cur_bars[col] = cur_bars[col].astype(float)
+            cur_bars = cur_bars.drop('adj_factor', axis=1)
+            if 'min' not in freq:
+                cur_bars['change'] = cur_bars['close'] - cur_bars['pre_close']
+                cur_bars['pct_chg'] = cur_bars['change'] / \
+                    cur_bars['pre_close'] * 100
+                cur_bars['pct_chg'] = cur_bars['pct_chg'].map(
+                    lambda x: FORMAT(x)).astype(float)
+            else:
+                cur_bars = cur_bars.drop(['trade_date', 'pre_close'], axis=1)
+            cur_bars.reset_index(drop=True, inplace=True)
+            result = pd.concat([result, cur_bars], ignore_index=True)
+        bars = result.reset_index(drop=True)
+        bars['trade_date'] = bars['trade_date'].map(yyyymmdd_2_int)
+    print('batch bars')
+    print(bars)
+    return bars
+
+
+def trading_info_2_mongo(info: DataFrame):
+    if info is None or info.empty:
+        print('Skip empty data')
         return
-    if not basics.empty:
-        start = datetime.datetime.now()
-        for i in basics.itertuples():
-            log.i(__TAG__, 'Updating for %s:%s' % (i.ts_code, i.name))
-            print(update_daily_trading_info_for(i.ts_code))
-        end = datetime.datetime.now()
-        log.i(__TAG__,  'Update start at %s end at %s, %s' %
-              (start.strftime('%H:%M:%S'), end.strftime('%H:%M:%S'), end - start))
+    info = info.sort_values(by='trade_date', axis=0,
+                            ascending=True, ignore_index=True)
+    last = BasicTradingInfoItem.objects(
+        ts_code=info['ts_code'][0], freq=info['freq'][0]).order_by('-trade_date').limit(1).first()
+    start_date = last.trade_date if last is not None else -sys.maxsize-1
+    print(info[info['trade_date'] > start_date])
+    df_2_mongo(info[info['trade_date'] > start_date], BasicTradingInfoItem)
+    print('done')
+    return None
+
+
+def update_daily_trading_info_in_batch(ts_code, start_date, end_date):
+    print('gogogo')
+    bars = batch_bar(ts_code=ts_code, start_date=start_date,
+                     end_date=end_date, adj='qfq')
+    print(bars)
+    if bars is None or bars.empty:
+        print('None bar for %s between %s - %s' %
+              (ts_code, start_date, end_date))
+    print(bars)
+    for code in ts_code.split(','):
+        trading_info_2_mongo(bars[bars['ts_code'] == code.strip()])
+    print('zzzzz')
+    return None
+
+
+def get_last_ok_date(freq='D') -> str:
+    last = TradingInfoUpdateMetaItem.objects(
+        freq='D').order_by('-last_ok_date').limit(1).first()
+    last_ms = last.last_ok_date if last is not None else get_last_trade_date_in_ms_for(
+        exchange='SSE', adj=True)
+    return timestamp_2_YYYYMMDD(last_ms)
+
+
+def save_last_ok_date(trade_date, freq='D'):
+    TradingInfoUpdateMetaItem(
+        last_ok_date=yyyymmdd_2_int(trade_date), freq='D').save()
+
+
+def update_all_daily_trading_info_in_batch():
+    ''' Update all 日线数据到最新
+    '''
+    start_date = get_last_ok_date(freq='D')
+    end_date = timestamp_2_YYYYMMDD(
+        get_last_trade_date_in_ms_for(exchange='SSE', adj=True))
+    if start_date is None or start_date == '' or end_date is None or end_date == '':
+        print('Failed to update all daily trading info case invalid trade date(%s-%s)' %
+              (start_date, end_date))
+        return
+    try:
+        basics = get_stock_basics()
+        data = basics
+        count = 0
+        # Tushare限制最大100个
+        batch_size = 100
+        # size = data.shape[0]
+        done = False
+        while not done:
+            start = batch_size * count
+            end = batch_size * (count + 1)
+            if end > data.shape[0]:
+                end = data.shape[0]
+                done = True
+            ts_codes = str(data['ts_code'][start:end].to_string(
+                header=False, index=False))
+            ts_codes = ts_codes.replace('\n', ',')
+            # print(ts_codes)
+            update_daily_trading_info_in_batch(ts_codes, start_date, end_date)
+            print('####################')
+            count = count + 1
+    except Exception as e:
+        print('Something is wrong')
+        raise QuantzException('Failed to update all daily trading info') from e
     else:
-        log.e(__TAG__,  'Empty stock list got, please make sure your db initialized or available network connection')
+        save_last_ok_date(end_date, freq='D')
+        print('Update daily trading info to %s ✔✔✔' % end_date)
+
+
+# update_all_daily_trading_info_in_batch()

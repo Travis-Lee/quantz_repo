@@ -14,9 +14,9 @@ from .industrial_classificataion_manager import (
 from .model.index_daily_item import IndexDailyItem
 from .quantz_exception import QuantzException
 from .stock_basics_manager import get_stock_basics, update_stock_basics
-from .stock_trading_info_manager import (initialize_daily_trading_info,
-                                         update_daily_trading_info,
-                                         update_daily_trading_info_for)
+from .stock_trading_info_manager import (
+    initialize_daily_trading_info, update_all_daily_trading_info_in_batch,
+    update_daily_trading_info, update_daily_trading_info_for)
 from .trade_calendar_manager import (get_last_trade_date_in_ms_for,
                                      get_next_trade_date_of,
                                      get_trade_dates_between,
