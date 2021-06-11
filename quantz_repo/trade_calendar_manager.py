@@ -145,3 +145,25 @@ def get_next_trade_date_of(day: str, exchange: str = 'SSE') -> str:
         return millisec_2_YYYYMMDD(next.cal_date)
     else:
         None
+
+
+def get_last_quarter_end_date() -> datetime.datetime:
+    """
+    根据当前日期生成最近的报表季时间
+    """
+    now = datetime.datetime.now()
+    month = (now.month - 1) - (now.month - 1) % 3 + 1
+    last_quarter_end = datetime.datetime(
+        now.year, month, 1) - datetime.timedelta(days=1)
+    # return (last_quarter_end.strftime("%Y%m%d"))
+    return (last_quarter_end)
+
+
+def get_last_quarter_end_date_b4(day: datetime.datetime = datetime.datetime.today()) -> datetime.datetime:
+    """
+    生成某个日期之前的最近的报表季时间,比如2020年6月1日返回2020年3月31日,默认返回相对于今天的上一个季度最后一天
+    :return: [description]
+    :rtype: [type]
+    """
+    month = (day.month - 1) - (day.month - 1) % 3 + 1
+    return datetime.datetime(day.year, month, 1) - datetime.timedelta(days=1)

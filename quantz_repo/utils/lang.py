@@ -29,3 +29,7 @@ def import_specified_file(path: str):
             log.w('Lang', 'Failed to import %s' % (path))
     else:
         log.w('Lang', 'Failed to import %s(path not found)' % (path))
+
+
+def rimport(rel_path: str):
+    pass

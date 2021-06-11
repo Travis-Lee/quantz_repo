@@ -8,19 +8,20 @@ from pytz import utc
 
 from quantz_repo import (get_us_ccsa, get_us_initial_jobless, get_us_wei,
                          initialize_daily_trading_info, initialize_db,
-                         initialize_industrial_classification,
+                         initialize_industrial_classification, is_trading_day,
                          rank_all_industry,
                          update_all_daily_trading_info_in_batch,
                          update_industry_classification, update_stock_basics,
                          update_us_ccsa, update_us_initial_jobless,
                          update_us_wei)
+from quantz_repo.utils import today_2_millisec
 
 
 def may_market_be_ready():
     '''
     判断当前市场交易数据是否可获取，若可能用，返回 True，否则返回 False
     '''
-    return datetime.datetime.now().hour >= 17
+    return datetime.datetime.now().hour >= 17 or not is_trading_day(today_2_millisec())
 
 
 class DailyTrigger(BaseTrigger):
@@ -150,10 +151,10 @@ def quantzrepoi():
 def quantzrepou():
     """更新所有数据到最新
     """
+    initialize_db('quantz')
     if not may_market_be_ready():
         print('☠☠☠ Market data may not be ready, try again later ☠☠☠')
         return
-    initialize_db('quantz')
     update_us_wei()
     update_us_initial_jobless()
     update_us_ccsa()

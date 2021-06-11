@@ -65,9 +65,8 @@ def _get_industry_member_declaredate_from_sw() -> DataFrame:
         date_serie = date_serie.astype(np.int64)
         df['declaredate'] = date_serie
         return df
-    except BaseException as e:
-        loge(_TAG, 'Failed to get declaredate from SW cause %s' % e)
-        return DataFrame()
+    except Exception as e:
+        raise QuantzException('Failed to get declaredate from SW') from e
 
 
 def _get_industry_classification_from_tushare(index_code=None, declaredate=int(datetime.datetime.now().timestamp())*1000, level='L2', src='SW') -> DataFrame:
@@ -79,9 +78,9 @@ def _get_industry_classification_from_tushare(index_code=None, declaredate=int(d
         industial_classification_df['declaredate'] = declaredate
         df_2_mongo(industial_classification_df, IndustrialClassificationItem)
         return industial_classification_df
-    except BaseException as e:
-        loge(_TAG, 'Failed to get industry classification from tushare cause %s' % e)
-        return DataFrame()
+    except Exception as e:
+        raise QuantzException(
+            'Failed to get industry classification from tushare') from e
 
 
 def get_industrial_classifications(trade_date=int(datetime.datetime.now().timestamp())*1000, level='L2', src='SW') -> DataFrame:
@@ -97,8 +96,8 @@ def get_industrial_classifications(trade_date=int(datetime.datetime.now().timest
         latest_declare_meta = IndustryClassificatoinMetaItem.objects(
             declaredate__gte=trade_date).order_by('+declaredate').limit(1).first()
     if latest_declare_meta is None:
-        loge(_TAG, 'Failed to get industry classification, not meta data found')
-        return DataFrame()
+        raise QuantzException(
+            'Failed to get industry classification, not meta data found')
     return mongo_2_df(
         IndustrialClassificationItem.objects(level=level, declaredate=latest_declare_meta.declaredate, src='SW'))
 
@@ -126,10 +125,12 @@ def _get_industry_classificatoin_members_from_tushare(index_code: str, declareda
         members['declaredate'] = declaredate
         df_2_mongo(members, IndustrialClassficationMemberItem)
         return members
-    except BaseException as e:
-        loge(_TAG, 'Failed to get classification memebers for %s from tushare cause %s' % (
-            index_code, e))
-        return DataFrame()
+    except Exception as e:
+        raise QuantzException('Failed to get classification memebers for %s from tushare cause %s' % (
+            index_code, e)) from e
+    else:
+        logi(_TAG, 'Got classification members for %s on %s ' %
+             (index_code, millisec_2_YYYYMMDD(declaredate)))
 
 
 def get_industrial_classfication_members(index_code: str, trade_date=int(datetime.datetime.now().timestamp())*1000) -> DataFrame:
@@ -144,8 +145,8 @@ def get_industrial_classfication_members(index_code: str, trade_date=int(datetim
         latest_declare_meta = IndustryClassificatoinMetaItem.objects(
             declaredate__gte=trade_date).order_by('+declaredate').limit(1).first()
     if latest_declare_meta is None:
-        loge(_TAG, 'Failed to get industry classification members, not meta data found')
-        return DataFrame()
+        raise QuantzException(
+            'Failed to get industry classification members, not meta data found')
     return mongo_2_df(
         IndustrialClassficationMemberItem.objects(index_code=index_code, declaredate=latest_declare_meta.declaredate))
 
@@ -160,8 +161,8 @@ def get_industrial_classification_for(ts_code: str, trade_date=int(datetime.date
         latest_declare_meta = IndustryClassificatoinMetaItem.objects(
             declaredate__gte=trade_date).order_by('+declaredate').limit(1).first()
     if latest_declare_meta is None:
-        loge(_TAG, 'Failed to get industry classification, not meta data found')
-        return DataFrame()
+        raise QuantzException(
+            'Failed to get industry classification, not meta data found')
     logi(_TAG, 'Get industrial classification for %s' % ts_code)
     return mongo_2_df(IndustrialClassficationMemberItem.objects(con_code=ts_code, declaredate=latest_declare_meta.declaredate))
 
