@@ -19,7 +19,7 @@ def timestamp_2_YYYYMMDD(timestamp_in_milliseconds: int) -> str:
     return datetime.fromtimestamp(timestamp_in_milliseconds/1000).strftime('%Y%m%d')
 
 
-def millisec_2_YYYYMMDD(milliseconds: int) -> int:
+def millisec_2_YYYYMMDD(milliseconds: int) -> str:
     return datetime.fromtimestamp(milliseconds/1000).strftime('%Y%m%d')
 
 

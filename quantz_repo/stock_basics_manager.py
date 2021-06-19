@@ -46,3 +46,8 @@ def get_stock_basics() -> DataFrame:
     else:
         log.i(__TAG__, 'Get stock basics from ts')
         return update_stock_basics()
+
+
+def get_stock_basics_listed_earlier_than(day: str):
+    day_in_ms = yyyymmdd_2_int(day)
+    return mongo_2_df(BasicStockInfoItem.objects(list_date__lte=day_in_ms))

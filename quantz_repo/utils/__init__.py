@@ -7,3 +7,7 @@ from .date_time import (datetime_2_date_millisec, get_next_day_in_YYYYMMDD,
 from .fred import Fred
 from .lang import import_specified_file
 from .numbers import round_half_up
+from .log import i as logi
+from .log import d as logd
+from .log import e as loge
+from .log import w as logw

@@ -10,7 +10,7 @@ from . import QuantzException, get_stock_basics
 from .model import BasicStockInfoItem, BasicTradingInfoItem
 from .models import TradingInfoUpdateMetaItem
 from .trade_calendar_manager import (get_last_trade_date_in_ms_for,
-                                     get_next_trade_date_of)
+                                     get_next_trade_date_of, is_trading_day)
 from .utils import (df_2_mongo, get_next_day_in_YYYYMMDD, log,
                     millisec_2_YYYYMMDD, mongo_2_df, now_2_YYYYMMDD,
                     timestamp_2_YYYYMMDD, yyyymmdd_2_int)
@@ -220,17 +220,14 @@ def trading_info_2_mongo(info: DataFrame):
 
 
 def update_daily_trading_info_in_batch(ts_code, start_date, end_date):
-    print('gogogo')
+    print('Update daily trading info in batch')
     bars = batch_bar(ts_code=ts_code, start_date=start_date,
                      end_date=end_date, adj='qfq')
-    print(bars)
     if bars is None or bars.empty:
         print('None bar for %s between %s - %s' %
               (ts_code, start_date, end_date))
-    print(bars)
     for code in ts_code.split(','):
         trading_info_2_mongo(bars[bars['ts_code'] == code.strip()])
-    print('zzzzz')
     return None
 
 
@@ -287,3 +284,13 @@ def update_all_daily_trading_info_in_batch():
 
 
 # update_all_daily_trading_info_in_batch()
+def get_daily_trading_info_snapshot_on(day: str) -> DataFrame:
+    day_in_ms = yyyymmdd_2_int(day)
+    if not is_trading_day(day_in_ms):
+        log.i(__TAG__, '🔥🔥🔥 %s is not trade date, returning empty DF 🔥🔥🔥')
+        return DataFrame()
+    try:
+        return mongo_2_df(BasicTradingInfoItem.objects(trade_date=day_in_ms, freq='D'))
+    except Exception as e:
+        raise QuantzException(
+            '🚑🚑🚑 Failed to get daily snapshot on %s 🚑🚑🚑' % day) from e

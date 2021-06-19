@@ -147,6 +147,25 @@ def get_next_trade_date_of(day: str, exchange: str = 'SSE') -> str:
         None
 
 
+def get_last_trade_date_of(day: str, exchange='SSE') -> str:
+    """返回day之前的一个交易日YYYYmmdd
+
+    :param day: 哪一天之前
+    :type day: str
+    :param exchange: 指定交易所, defaults to 'SSE'
+    :type exchange: str, optional
+    :raises QuantzException: 发生错误抛出异常
+    :return: 返回日期，YYYYmmdd
+    :rtype: str
+    """
+    try:
+        return millisec_2_YYYYMMDD(TradeCalendarItem.objects(is_open=1, cal_date__lt=yyyymmdd_2_int(
+            day), exchange=exchange).order_by('-cal_date').limit(1).first().cal_date)
+    except Exception as e:
+        raise QuantzException(
+            'Failed to get trade date before %s' % day) from e
+
+
 def get_last_quarter_end_date() -> datetime.datetime:
     """
     根据当前日期生成最近的报表季时间
@@ -167,3 +186,52 @@ def get_last_quarter_end_date_b4(day: datetime.datetime = datetime.datetime.toda
     """
     month = (day.month - 1) - (day.month - 1) % 3 + 1
     return datetime.datetime(day.year, month, 1) - datetime.timedelta(days=1)
+
+
+def get_last_n_trade_date_b4(n: int, day: str, inc=False, exchange='SSE') -> str:
+    """获取day之前第N个交易日的日期，如果day不是交易日，则转换成day之前最近的交易日计算
+
+    :param n: n天前
+    :type n: int
+    :param day: 相对于哪一天的
+    :type day: str
+    :param inc: n天的第一天是否包含day，默认不包含
+    :type inc: bool, optional
+    :param exchange: 交易所，默认 SSE上交所,支持SZSE深交所
+    :type exchange: str, optional,默认 SSE上交所
+    :return: 返回计算出的日期YYYYmmdd
+    :rtype: str
+    """
+    day_in_ms = int((datetime.datetime.strptime(
+        day, '%Y%m%d')).timestamp()) * 1000
+    if not is_trading_day(day_in_ms):
+        day_in_ms = yyyymmdd_2_int(
+            get_last_trade_date_of(day=day, exchange=exchange))
+    where = {'is_open': 1, 'exchange': exchange}
+    where['cal_date__lte' if inc else 'cal_date__lt'] = day_in_ms
+    return millisec_2_YYYYMMDD(TradeCalendarItem.objects(
+        **where).order_by('-cal_date').skip(n-1).limit(1).first().cal_date)
+
+
+def get_last_n_trade_dates_b4(n: int, day: str, inc=False, exchange='SSE') -> DataFrame:
+    """获取day之前的n个交易日, 注意与 get_last_n_trade_date_b4 不同
+
+    :param n: 交易日数量
+    :type n: int
+    :param day: 参考日期
+    :type day: str
+    :param inc: 是否包含参考日期, defaults to False
+    :type inc: bool, optional
+    :param exchange: 哪个交易四, defaults to 'SSE'，上交所,支持 SZSE深交所
+    :type exchange: str, optional
+    :return: 交易日的DataFrame
+    :rtype: DataFrame
+    """
+    day_in_ms = int((datetime.datetime.strptime(
+        day, '%Y%m%d')).timestamp()) * 1000
+    if not is_trading_day(day_in_ms):
+        day_in_ms = yyyymmdd_2_int(
+            get_last_trade_date_of(day=day, exchange=exchange))
+    where = {'is_open': 1, 'exchange': exchange}
+    where['cal_date__lte' if inc else 'cal_date__lt'] = day_in_ms
+    return mongo_2_df(TradeCalendarItem.objects(**where).order_by('-cal_date').limit(n))
